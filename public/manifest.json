@@ -1,0 +1,15 @@
+{
+  "name": "MyReal",
+  "short_name": "MyReal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f4f0",
+  "theme_color": "#101114",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
