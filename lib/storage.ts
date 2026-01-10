@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { env } from './config';
+import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
 import {
   S3Client,
   PutObjectCommand,
@@ -37,6 +38,24 @@ export async function saveImage(
   const filename = `${prefix}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.png`;
+  if (
+    env.storageProvider === 'supabase' &&
+    isSupabaseEnabled() &&
+    env.supabaseBucket
+  ) {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase.storage
+      .from(env.supabaseBucket)
+      .upload(filename, buffer, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false
+      });
+    if (error) {
+      throw new Error(`Supabase upload failed: ${error.message}`);
+    }
+    return { key: filename };
+  }
   if (env.storageProvider === 's3' && env.s3Bucket) {
     const client = s3Client();
     await client.send(
@@ -58,6 +77,20 @@ export async function saveImage(
 }
 
 export async function getImageUrl(key: string, expiresInSec = 60 * 60) {
+  if (
+    env.storageProvider === 'supabase' &&
+    isSupabaseEnabled() &&
+    env.supabaseBucket
+  ) {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.storage
+      .from(env.supabaseBucket)
+      .createSignedUrl(key, expiresInSec);
+    if (error || !data?.signedUrl) {
+      throw new Error(`Supabase signed URL failed: ${error?.message || 'unknown'}`);
+    }
+    return data.signedUrl;
+  }
   if (env.storageProvider === 's3' && env.s3Bucket) {
     if (env.s3PublicUrl) {
       return `${env.s3PublicUrl.replace(/\/$/, '')}/${key}`;
@@ -73,6 +106,15 @@ export async function getImageUrl(key: string, expiresInSec = 60 * 60) {
 }
 
 export async function deleteImage(key: string) {
+  if (
+    env.storageProvider === 'supabase' &&
+    isSupabaseEnabled() &&
+    env.supabaseBucket
+  ) {
+    const supabase = getSupabaseAdmin();
+    await supabase.storage.from(env.supabaseBucket).remove([key]);
+    return;
+  }
   if (env.storageProvider === 's3' && env.s3Bucket) {
     const client = s3Client();
     await client.send(

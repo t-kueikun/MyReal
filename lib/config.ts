@@ -33,8 +33,15 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_MODEL: z.string().optional(),
+  OPENROUTER_REFERER: z.string().optional(),
+  OPENROUTER_TITLE: z.string().optional(),
   TOKEN_SECRET: z.string().optional(),
-  STORAGE_PROVIDER: z.enum(['s3', 'local']).optional(),
+  STORAGE_PROVIDER: z.enum(['s3', 'local', 'supabase']).optional(),
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_BUCKET: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_BUCKET: z.string().optional(),
@@ -67,8 +74,22 @@ export const env = {
     raw.GEMINI_MODEL ||
     envLocal.GEMINI_MODEL ||
     'gemini-2.0-flash-exp-image-generation',
+  openRouterApiKey:
+    raw.OPENROUTER_API_KEY || envLocal.OPENROUTER_API_KEY || '',
+  openRouterModel:
+    raw.OPENROUTER_MODEL ||
+    envLocal.OPENROUTER_MODEL ||
+    'google/gemini-2.5-flash-image',
+  openRouterReferer:
+    raw.OPENROUTER_REFERER || envLocal.OPENROUTER_REFERER || '',
+  openRouterTitle:
+    raw.OPENROUTER_TITLE || envLocal.OPENROUTER_TITLE || '',
   tokenSecret: raw.TOKEN_SECRET || envLocal.TOKEN_SECRET || '',
   storageProvider: raw.STORAGE_PROVIDER || envLocal.STORAGE_PROVIDER || 'local',
+  supabaseUrl: raw.SUPABASE_URL || envLocal.SUPABASE_URL || '',
+  supabaseServiceRoleKey:
+    raw.SUPABASE_SERVICE_ROLE_KEY || envLocal.SUPABASE_SERVICE_ROLE_KEY || '',
+  supabaseBucket: raw.SUPABASE_BUCKET || envLocal.SUPABASE_BUCKET || 'myreal',
   s3Endpoint: raw.S3_ENDPOINT || envLocal.S3_ENDPOINT || '',
   s3Region: raw.S3_REGION || envLocal.S3_REGION || 'auto',
   s3Bucket: raw.S3_BUCKET || envLocal.S3_BUCKET || '',

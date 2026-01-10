@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { saveCapture, listCaptures, type GalleryItem } from '../../lib/gallery';
 
@@ -26,21 +26,30 @@ const DEFAULT_CONTROLS: Controls = {
 export default function ARClient({ imageUrl, token }: Props) {
   const [supportsXR, setSupportsXR] = useState(false);
   const [modeChecked, setModeChecked] = useState(false);
+  const [viewMode, setViewMode] = useState<'xr' | 'camera'>('camera');
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [voiceGuide, setVoiceGuide] = useState(false);
+  const modeInitRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     if (navigator.xr?.isSessionSupported) {
       navigator.xr.isSessionSupported('immersive-ar').then((ok) => {
-        if (active) {
-          setSupportsXR(ok);
-          setModeChecked(true);
+        if (!active) return;
+        setSupportsXR(ok);
+        setModeChecked(true);
+        if (!modeInitRef.current) {
+          setViewMode(ok ? 'xr' : 'camera');
+          modeInitRef.current = true;
         }
       });
     } else {
       setModeChecked(true);
+      if (!modeInitRef.current) {
+        setViewMode('camera');
+        modeInitRef.current = true;
+      }
     }
     return () => {
       active = false;
@@ -70,24 +79,49 @@ export default function ARClient({ imageUrl, token }: Props) {
     await downloadImage(dataUrl);
   };
 
+  const useXr = viewMode === 'xr' && supportsXR;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-ink/60">
         <span className="tag">
-          {supportsXR ? 'WebXR' : modeChecked ? '2D合成' : '判定中'}
+          {modeChecked ? (useXr ? 'WebXR' : '2D合成') : '判定中'}
         </span>
         <span>
-          {supportsXR
-            ? 'ARモード'
-            : modeChecked
-            ? 'カメラ合成モード'
+          {modeChecked
+            ? useXr
+              ? 'ARモード'
+              : 'カメラ合成モード'
             : '互換性を確認中'}
         </span>
       </div>
+      {supportsXR ? (
+        <div className="flex flex-wrap gap-2">
+          <button
+            className={`btn ${useXr ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('xr')}
+            type="button"
+          >
+            ARモード
+          </button>
+          <button
+            className={`btn ${!useXr ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setViewMode('camera')}
+            type="button"
+          >
+            カメラ合成で撮影
+          </button>
+          {!useXr ? (
+            <span className="text-sm text-ink/60 self-center">
+              写真を残す場合はこちらがおすすめです。
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-[1fr,320px]">
         <div className="card p-4">
           {modeChecked ? (
-            supportsXR ? (
+            useXr ? (
               <XRViewer imageUrl={imageUrl} controls={controls} onCapture={handleCapture} />
             ) : (
               <FallbackViewer imageUrl={imageUrl} controls={controls} onCapture={handleCapture} />
@@ -261,6 +295,7 @@ function XRViewer({
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let group: THREE.Group | null = null;
+    let xrSession: { end?: () => Promise<void> } | null = null;
     let frameId = 0;
     let disposed = false;
 
@@ -278,7 +313,7 @@ function XRViewer({
       renderer.setPixelRatio(window.devicePixelRatio || 1);
       renderer.setSize(container.clientWidth, 420);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.enabled = false;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
       scene = new THREE.Scene();
@@ -288,7 +323,6 @@ function XRViewer({
       const ambient = new THREE.AmbientLight(0xffffff, 0.8);
       const directional = new THREE.DirectionalLight(0xffffff, 1.2);
       directional.position.set(1, 2, 1);
-      directional.castShadow = true;
       scene.add(ambient, directional);
 
       const texture = await loadTexture(imageUrl);
@@ -299,15 +333,6 @@ function XRViewer({
       group.userData.baseRotation = (Math.random() - 0.5) * 0.2;
       const layers = createLayers(texture, normalMap);
       layers.forEach((layer) => group!.add(layer));
-
-      const shadowPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.2, 1.2),
-        new THREE.ShadowMaterial({ opacity: 0.2 })
-      );
-      shadowPlane.rotation.x = -Math.PI / 2;
-      shadowPlane.position.y = -0.4;
-      shadowPlane.receiveShadow = true;
-      group.add(shadowPlane);
 
       scene.add(group);
 
@@ -321,6 +346,7 @@ function XRViewer({
             domOverlay: { root: container }
           });
           if (!session) return;
+          xrSession = session;
           await renderer.xr.setSession(session);
           renderer.setAnimationLoop(() => {
             frameId += 1;
@@ -331,6 +357,7 @@ function XRViewer({
           });
           session.addEventListener('end', () => {
             renderer?.setAnimationLoop(null);
+            xrSession = null;
           });
         };
       }
@@ -354,6 +381,7 @@ function XRViewer({
 
     return () => {
       disposed = true;
+      xrSession?.end?.().catch(() => null);
       if (renderer) {
         renderer.setAnimationLoop(null);
         renderer.dispose();
@@ -417,68 +445,229 @@ function FallbackViewer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef(controls);
+  const tiltRef = useRef({ x: 0, y: 0 });
+  const anchorRef = useRef({ x: 0.5, y: 0.68 });
+  const sizeRef = useRef({ width: 0, height: 0, dpr: 1 });
 
   useEffect(() => {
     controlsRef.current = controls;
   }, [controls]);
 
   useEffect(() => {
+    const onTilt = (event: DeviceOrientationEvent) => {
+      tiltRef.current = {
+        x: Number(event.gamma || 0),
+        y: Number(event.beta || 0)
+      };
+    };
+    window.addEventListener('deviceorientation', onTilt);
+    return () => window.removeEventListener('deviceorientation', onTilt);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const updateSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      sizeRef.current = { width, height, dpr: window.devicePixelRatio || 1 };
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(canvas);
+    window.addEventListener('resize', updateSize);
+    window.addEventListener('orientationchange', updateSize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateSize);
+      window.removeEventListener('orientationchange', updateSize);
+    };
+  }, []);
+
+  useEffect(() => {
     let stream: MediaStream | null = null;
+    let rafId: number | null = null;
+    let active = true;
     const video = document.createElement('video');
     video.autoplay = true;
     video.playsInline = true;
+    video.muted = true;
     videoRef.current = video;
+    const frameCanvas = document.createElement('canvas');
+    const frameCtx = frameCanvas.getContext('2d');
+    let hasFrame = false;
 
     const drawLoop = async () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
       const img = await loadImage(imageUrl);
-      const draw = () => {
-          if (!canvas || !ctx || !videoRef.current) return;
-          const width = canvas.clientWidth;
-          const height = 420;
-          canvas.width = width;
-          canvas.height = height;
+      const layers = createLayerMasks(img);
+      let lastWidth = 0;
+      let lastHeight = 0;
+      let lastDpr = 1;
+      let lastVideoTime = -1;
+      const requestFrame = (video as any).requestVideoFrameCallback?.bind(video) as
+        | ((cb: () => void) => void)
+        | undefined;
 
-          ctx.filter = 'blur(4px) brightness(1.05)';
-          ctx.drawImage(videoRef.current, 0, 0, width, height);
-          ctx.filter = 'none';
-          ctx.drawImage(videoRef.current, 0, 0, width, height);
+      const render = (freshFrame: boolean) => {
+        if (!active) return;
+        if (!canvas || !ctx) return;
+        const { width, height, dpr } = sizeRef.current;
+        if (!width || !height) return;
+        if (width !== lastWidth || height !== lastHeight || dpr !== lastDpr) {
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+          lastWidth = width;
+          lastHeight = height;
+          lastDpr = dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.globalCompositeOperation = 'source-over';
+
+        const shouldSample = requestFrame ? freshFrame : true;
+        if (
+          shouldSample &&
+          frameCtx &&
+          video.readyState >= 2 &&
+          video.videoWidth > 0 &&
+          video.videoHeight > 0
+        ) {
+          const needsResize =
+            frameCanvas.width !== video.videoWidth ||
+            frameCanvas.height !== video.videoHeight;
+          if (needsResize) {
+            frameCanvas.width = video.videoWidth;
+            frameCanvas.height = video.videoHeight;
+          }
+          if (video.currentTime !== lastVideoTime || needsResize) {
+            lastVideoTime = video.currentTime;
+            frameCtx.drawImage(
+              video,
+              0,
+              0,
+              frameCanvas.width,
+              frameCanvas.height
+            );
+            hasFrame = true;
+          }
+        }
+
+        if (hasFrame) {
+          drawCover(ctx, frameCanvas, frameCanvas.width, frameCanvas.height, width, height);
+        } else {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, width, height);
+          return;
+        }
 
         const current = controlsRef.current;
-        const scale = current.scale * 0.8;
+        const anchor = anchorRef.current;
+        const anchorX = anchor.x * width + current.offsetX * width;
+        const anchorY = anchor.y * height + current.offsetY * height;
+        const baseScale =
+          Math.min(width / img.width, height / img.height) * 0.7;
+        const depthScale = clamp(0.8 + (anchorY / height) * 0.6, 0.8, 1.35);
+        const scale = baseScale * current.scale * depthScale;
         const w = img.width * scale;
         const h = img.height * scale;
-        const x = width / 2 - w / 2 + current.offsetX * width;
-        const y = height / 2 - h / 2 + current.offsetY * height;
+        const x = anchorX - w / 2;
+        const y = anchorY - h;
+
+        const tilt = tiltRef.current;
+        const tiltX = clamp(tilt.x / 45, -1, 1);
+        const tiltY = clamp(tilt.y / 45, -1, 1);
+        const tiltRotation = tiltX * 0.08;
+        const skewX = tiltX * 0.1;
+        const skewY = tiltY * 0.06;
+
+        const parallaxX = tiltX * 12;
+        const parallaxY = tiltY * 10;
+
+        const drawLayer = (layer: HTMLCanvasElement, depth: number) => {
+          const dx = parallaxX * depth;
+          const dy = parallaxY * depth;
+          ctx.save();
+          ctx.translate(x + w / 2 + dx, y + h / 2 + dy);
+          ctx.rotate(current.rotation + tiltRotation);
+          ctx.transform(1, skewY, skewX, 1, 0, 0);
+          ctx.drawImage(layer, -w / 2, -h / 2, w, h);
+          ctx.restore();
+        };
+
+        layers.forEach((layer, index) =>
+          drawLayer(layer, (index + 1) * 0.6)
+        );
 
         ctx.save();
         ctx.translate(x + w / 2, y + h / 2);
-        ctx.rotate(current.rotation);
-        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.rotate(current.rotation + tiltRotation);
+        ctx.transform(1, skewY, skewX, 1, 0, 0);
+        const highlight = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+        highlight.addColorStop(0, 'rgba(255,255,255,0.12)');
+        highlight.addColorStop(1, 'rgba(0,0,0,0.12)');
+        ctx.globalCompositeOperation = 'soft-light';
+        ctx.fillStyle = highlight;
+        ctx.fillRect(-w / 2, -h / 2, w, h);
         ctx.restore();
-
-        requestAnimationFrame(draw);
+        ctx.globalCompositeOperation = 'source-over';
       };
-      draw();
+
+      const loop = () => {
+        if (!active) return;
+        if (requestFrame) {
+          requestFrame(() => {
+            if (!active) return;
+            render(true);
+            loop();
+          });
+        } else {
+          rafId = requestAnimationFrame(() => {
+            render(false);
+            loop();
+          });
+        }
+      };
+
+      loop();
     };
 
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
       .then((mediaStream) => {
+        if (!active) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return Promise.reject(new Error('stopped'));
+        }
         stream = mediaStream;
         video.srcObject = mediaStream;
         return new Promise((resolve) => {
           video.onloadedmetadata = resolve;
         });
       })
-      .then(() => drawLoop())
+      .then(() => {
+        if (!active) return;
+        video.play().catch(() => null);
+        return drawLoop();
+      })
       .catch(() => null);
 
     return () => {
+      active = false;
+      hasFrame = false;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       stream?.getTracks().forEach((track) => track.stop());
+      stream = null;
+      video.pause();
+      (video.srcObject as MediaStream | null) = null;
     };
   }, [imageUrl]);
 
@@ -489,9 +678,26 @@ function FallbackViewer({
     onCapture(dataUrl);
   };
 
+  const handlePlace = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    anchorRef.current = {
+      x: clamp(x, 0.1, 0.9),
+      y: clamp(y, 0.3, 0.95)
+    };
+  };
+
   return (
     <div className="relative">
-      <canvas ref={canvasRef} className="h-[420px] w-full rounded-2xl" />
+      <canvas
+        ref={canvasRef}
+        className="h-[420px] w-full rounded-2xl bg-black"
+        onPointerDown={handlePlace}
+      />
+      <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-white/80 px-3 py-1 text-xs text-ink/70 shadow-soft">
+        画面をタップして配置
+      </div>
       <button className="btn btn-primary absolute bottom-4 right-4" onClick={capture}>
         シャッター
       </button>
@@ -503,10 +709,12 @@ function createLayers(
   texture: THREE.Texture,
   normalMap: THREE.DataTexture
 ): THREE.Mesh[] {
-  const geometry = new THREE.PlaneGeometry(1, 1.2);
+  const image = texture.image as HTMLImageElement;
+  const aspect = image.width ? image.height / image.width : 1;
+  const geometry = new THREE.PlaneGeometry(1, aspect);
   const layers: THREE.Mesh[] = [];
 
-  const masks = createLayerMasks(texture.image as HTMLImageElement);
+  const masks = createLayerMasks(image);
   masks.forEach((mask, index) => {
     const layerTexture = new THREE.CanvasTexture(mask);
     const material = new THREE.MeshStandardMaterial({
@@ -520,7 +728,6 @@ function createLayers(
     mesh.position.z = index * 0.02;
     mesh.userData.parallaxIndex = index + 1;
     mesh.userData.baseZ = mesh.position.z;
-    mesh.castShadow = true;
     layers.push(mesh);
   });
 
@@ -653,6 +860,34 @@ async function loadImage(url: string) {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  srcW: number,
+  srcH: number,
+  width: number,
+  height: number
+) {
+  if (!srcW || !srcH) {
+    ctx.drawImage(source, 0, 0, width, height);
+    return;
+  }
+  const videoAspect = srcW / srcH;
+  const canvasAspect = width / height;
+  let sx = 0;
+  let sy = 0;
+  let sW = srcW;
+  let sH = srcH;
+  if (videoAspect > canvasAspect) {
+    sW = srcH * canvasAspect;
+    sx = (srcW - sW) / 2;
+  } else {
+    sH = srcW / canvasAspect;
+    sy = (srcH - sH) / 2;
+  }
+  ctx.drawImage(source, sx, sy, sW, sH, 0, 0, width, height);
 }
 
 function updateGroup(

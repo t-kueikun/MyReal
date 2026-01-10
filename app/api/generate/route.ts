@@ -3,6 +3,7 @@ import { z, ZodError } from 'zod';
 import { validateImage, resizeToLimit, removeNearWhiteBackground } from '../../../lib/image';
 import { removeBackground } from '../../../lib/backgroundRemove';
 import { generateWithGemini } from '../../../lib/gemini';
+import { generateWithOpenRouter } from '../../../lib/openrouter';
 import { stylizeFallback } from '../../../lib/stylize';
 import { createToken } from '../../../lib/token';
 import { saveMeta } from '../../../lib/metadata';
@@ -71,24 +72,38 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let output: Buffer;
-      let provider: 'gemini' | 'fallback' = 'fallback';
-      let geminiFailed = false;
+      let output: Buffer | undefined;
+      let provider: 'gemini' | 'openrouter' | 'fallback' = 'fallback';
+      let aiAttempted = false;
       const fallbackInput = bgRemove
         ? processed
         : await removeNearWhiteBackground(processed);
-      if (env.geminiApiKey) {
+      if (env.openRouterApiKey) {
+        aiAttempted = true;
+        try {
+          output = await generateWithOpenRouter(processed, palette);
+          provider = 'openrouter';
+        } catch (error) {
+          logError('OpenRouter generation failed', { error: String(error) });
+        }
+      }
+
+      if (!output && env.geminiApiKey) {
+        aiAttempted = true;
         try {
           output = await generateWithGemini(processed, palette);
           provider = 'gemini';
         } catch (error) {
-          geminiFailed = true;
           logError('Gemini generation failed', { error: String(error) });
-          output = await stylizeFallback(fallbackInput, palette);
         }
-      } else {
-        output = await stylizeFallback(fallbackInput, palette);
       }
+
+      if (!output) {
+        output = await stylizeFallback(fallbackInput, palette);
+        provider = 'fallback';
+      }
+
+      const geminiFailed = aiAttempted && provider === 'fallback';
 
       output = await sharp(output)
         .resize(1024, 1024, {
@@ -120,8 +135,9 @@ export async function POST(request: NextRequest) {
       durationMs: Date.now() - start,
       provider: result.provider,
       geminiFailed: result.geminiFailed,
-      model: env.geminiModel,
-      hasGeminiKey: Boolean(env.geminiApiKey)
+      model: result.provider === 'openrouter' ? env.openRouterModel : env.geminiModel,
+      hasGeminiKey: Boolean(env.geminiApiKey),
+      hasOpenRouterKey: Boolean(env.openRouterApiKey)
     });
 
     return NextResponse.json(result, { status: 200 });

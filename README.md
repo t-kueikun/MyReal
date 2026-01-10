@@ -47,6 +47,24 @@ npm run dev
 
 ※ `GEMINI_API_KEY` 未設定時はローカル簡易スタイル処理へ自動フォールバックします。
 
+### Supabase (Storage + DB)
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_BUCKET` (例: `myreal`)
+- `STORAGE_PROVIDER=supabase` (画像保存もSupabaseにする場合)
+
+`supabase/schema.sql` をSupabaseのSQLエディタで実行し、テーブルを作成してください。  
+Storageには同名のBucketを作成し、**private**で運用するのがおすすめです（アプリ側で署名付きURLを発行します）。
+Supabaseが設定されている場合、メタデータ/アンケート/メトリクスはSupabaseに保存されます。
+
+### OpenRouter (任意: Gemini 2.5 Flash Image)
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL` (例: `google/gemini-2.5-flash-image`)
+- `OPENROUTER_REFERER` / `OPENROUTER_TITLE` (任意: OpenRouterのアプリ表示)
+
+`OPENROUTER_API_KEY` が設定されている場合はOpenRouter経由を優先します。未設定なら直接Geminiを使用します。
+OpenRouterの料金/無料枠は提供状況に依存するため、OpenRouter側の料金ページをご確認ください。
+
 ### ストレージ (S3互換/R2)
 - `STORAGE_PROVIDER=s3`
 - `S3_ENDPOINT`
@@ -55,6 +73,7 @@ npm run dev
 - `S3_SECRET_ACCESS_KEY`
 - `S3_PUBLIC_URL` (任意: パブリックURLを使う場合)
 
+Supabaseを使う場合は上記のSupabase設定に切り替えてください。  
 未設定時は `data/storage` にローカル保存します。
 S3/R2側でCORS許可 (`GET`) を設定してください。
 

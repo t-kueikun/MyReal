@@ -11,7 +11,7 @@ type GenerateResult = {
   token: string;
   imageUrl: string;
   expiresAt: string;
-  provider: 'gemini' | 'fallback';
+  provider: 'gemini' | 'openrouter' | 'fallback';
   geminiFailed?: boolean;
 };
 
@@ -160,7 +160,12 @@ export default function GeneratePage() {
             ) : null}
             {result ? (
               <p className="text-xs text-ink/50">
-                生成エンジン: {result.provider === 'gemini' ? 'Gemini' : 'ローカル簡易'}
+                生成エンジン:{' '}
+                {result.provider === 'gemini'
+                  ? 'Gemini'
+                  : result.provider === 'openrouter'
+                    ? 'OpenRouter (Gemini)'
+                    : 'ローカル簡易'}
                 {result.geminiFailed ? ' (Gemini失敗時フォールバック)' : ''}
               </p>
             ) : null}

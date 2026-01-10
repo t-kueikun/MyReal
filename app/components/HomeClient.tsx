@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DrawingCanvas, { DrawingCanvasHandle } from './DrawingCanvas';
 import ImageUploader from './ImageUploader';
@@ -78,6 +79,11 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
             <span className="tag">24時間限定</span>
             <span className="tag">PWA対応</span>
           </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/scan" className="btn btn-ghost">
+            QRを読み込む
+          </Link>
         </div>
       </section>
 
