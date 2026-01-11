@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import NextImage from 'next/image';
 import * as THREE from 'three';
 import { saveCapture, listCaptures, type GalleryItem } from '../../lib/gallery';
@@ -78,12 +78,12 @@ export default function ARClient({ imageUrl, token }: Props) {
     };
   }, [voiceGuide]);
 
-  const handleCapture = async (dataUrl: string) => {
+  const handleCapture = useCallback(async (dataUrl: string) => {
     await saveCapture({ dataUrl, createdAt: new Date().toISOString(), token });
     const list = await listCaptures();
     setGallery(list);
     await downloadImage(dataUrl);
-  };
+  }, [token]);
 
   const useXr = viewMode === 'xr' && supportsXR;
 
@@ -934,7 +934,7 @@ function FallbackViewer({
       video.pause();
       (video.srcObject as MediaStream | null) = null;
     };
-  }, [imageUrl]);
+  }, [imageUrl, onCapture, transparent]);
 
   const captureRequestRef = useRef(false);
 

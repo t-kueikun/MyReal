@@ -37,12 +37,12 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
       if (source === 'upload' && uploadedFile) {
         blob = uploadedFile;
       } else if (source === 'draw') {
-        blob = await drawingRef.current?.exportBlob();
+        blob = (await drawingRef.current?.exportBlob()) ?? null;
       } else if (uploadedFile) {
         blob = uploadedFile;
         usedSource = 'upload';
       } else {
-        blob = await drawingRef.current?.exportBlob();
+        blob = (await drawingRef.current?.exportBlob()) ?? null;
         usedSource = 'draw';
       }
       if (!blob) {
