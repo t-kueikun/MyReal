@@ -4,3 +4,7 @@ interface Navigator {
     requestSession: (mode: string, options?: any) => Promise<any>;
   };
 }
+
+interface Window {
+  showSaveFilePicker?: (options?: any) => Promise<any>;
+}
