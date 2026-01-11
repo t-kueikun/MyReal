@@ -236,7 +236,6 @@ export default function ARClient({ imageUrl, token }: Props) {
 async function downloadImage(dataUrl: string) {
   if ('showSaveFilePicker' in window) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const picker = await (window as any).showSaveFilePicker({
         suggestedName: 'myreal-ar.png',
         types: [
