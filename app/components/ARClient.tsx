@@ -863,17 +863,6 @@ function FallbackViewer({
           drawLayer(layer, (index + 1) * 0.6)
         );
 
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(current.rotation + tiltRotation);
-        ctx.transform(1, skewY, skewX, 1, 0, 0);
-        const highlight = ctx.createLinearGradient(-w / 2 - pivotOffsetX, -h / 2 - pivotOffsetY, w / 2 - pivotOffsetX, h / 2 - pivotOffsetY);
-        highlight.addColorStop(0, 'rgba(255,255,255,0.12)');
-        highlight.addColorStop(1, 'rgba(0,0,0,0.12)');
-        ctx.globalCompositeOperation = 'soft-light';
-        ctx.fillStyle = highlight;
-        ctx.fillRect(-w / 2 - pivotOffsetX, -h / 2 - pivotOffsetY, w, h);
-        ctx.restore();
         ctx.globalCompositeOperation = 'source-over';
 
         if (captureRequestRef.current) {
@@ -1003,7 +992,8 @@ function createLayers(
       normalMap,
       transparent: true,
       roughness: 0.95,
-      metalness: 0.05
+      metalness: 0.05,
+      alphaTest: 0.1
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.z = index * 0.02;
@@ -1011,16 +1001,6 @@ function createLayers(
     mesh.userData.baseZ = mesh.position.z;
     layers.push(mesh);
   });
-
-  const outlineMaterial = new THREE.MeshBasicMaterial({
-    color: 0x111111,
-    transparent: true,
-    opacity: 0.15
-  });
-  const outline = new THREE.Mesh(geometry, outlineMaterial);
-  outline.scale.set(1.04, 1.04, 1.04);
-  outline.position.z = -0.01;
-  layers.unshift(outline);
 
   return layers;
 }

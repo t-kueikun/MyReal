@@ -112,11 +112,13 @@ export default function ScanPage() {
     }
   };
 
-  const lookupToken = async (rawValue: string) => {
+  const lookupToken = async (rawValue: string, retryCount = 0) => {
     const extracted = extractToken(rawValue);
     if (!extracted) {
-      setState('error');
-      setError('QRの内容が読み取れませんでした。');
+      if (retryCount === 0) {
+        setState('error');
+        setError('QRの内容が読み取れませんでした。');
+      }
       return;
     }
     setTokenInput(extracted);
@@ -125,6 +127,11 @@ export default function ScanPage() {
     try {
       const res = await fetch(`/api/meta/${encodeURIComponent(extracted)}`);
       if (!res.ok) {
+        if (res.status === 404 && retryCount < 5) {
+          // Retry for eventual consistency or processing delay
+          setTimeout(() => lookupToken(rawValue, retryCount + 1), 2000);
+          return;
+        }
         setState('error');
         setError('番号が見つかりません。もう一度読み込んでください。');
         return;
@@ -135,6 +142,10 @@ export default function ScanPage() {
       setExpiresAt(data.expiresAt);
       setState('ready');
     } catch {
+      if (retryCount < 5) {
+        setTimeout(() => lookupToken(rawValue, retryCount + 1), 2000);
+        return;
+      }
       setState('error');
       setError('照合に失敗しました。通信状況をご確認ください。');
     }
