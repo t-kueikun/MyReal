@@ -31,9 +31,7 @@
     "three": "^0.165.0",
     "zod": "^3.23.8"
   },
-  "optionalDependencies": {
-    "onnxruntime-node": "^1.17.1"
-  },
+  "optionalDependencies": {},
   "devDependencies": {
     "@cloudflare/next-on-pages": "1.11.3",
     "@playwright/test": "^1.46.0",
