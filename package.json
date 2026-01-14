@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:all": "npm run test:unit && npm run test:e2e",
     "cleanup": "tsx scripts/cleanup.ts",
-    "cf:build": "next build --webpack && npx @cloudflare/next-on-pages"
+    "cf:build": "next build && npx @cloudflare/next-on-pages"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.572.0",
