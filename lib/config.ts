@@ -60,6 +60,7 @@ const envSchema = z.object({
   IMAGE_RETENTION_HOURS: z.string().optional(),
   MAINTENANCE_MODE: z.string().optional(),
   BACKGROUND_REMOVAL_MODEL_PATH: z.string().optional(),
+  REMOVE_BG_API_KEY: z.string().optional(),
   LOG_LEVEL: z.string().optional()
 });
 
@@ -125,5 +126,6 @@ export const env = {
     (raw.MAINTENANCE_MODE || envLocal.MAINTENANCE_MODE) === 'true',
   bgRemovalModelPath:
     raw.BACKGROUND_REMOVAL_MODEL_PATH || envLocal.BACKGROUND_REMOVAL_MODEL_PATH || '',
+  removeBgApiKey: raw.REMOVE_BG_API_KEY || envLocal.REMOVE_BG_API_KEY || '',
   logLevel: raw.LOG_LEVEL || envLocal.LOG_LEVEL || 'info'
 };

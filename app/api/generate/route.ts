@@ -105,6 +105,16 @@ export async function POST(request: NextRequest) {
 
       const geminiFailed = aiAttempted && provider === 'fallback';
 
+      // Always attempt to remove background from the generated result
+      // because we explicitly prompted for a white background.
+      if (output) {
+        try {
+          output = await removeBackground(output);
+        } catch (error) {
+          logError('Output background removal failed', { error: String(error) });
+        }
+      }
+
       output = await sharp(output)
         .resize(1024, 1024, {
           fit: 'contain',

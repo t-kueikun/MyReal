@@ -37,7 +37,7 @@ export async function removeNearWhiteBackground(buffer: Buffer) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    if (r > 245 && g > 245 && b > 245) {
+    if (r > 230 && g > 230 && b > 230) {
       data[i + 3] = 0;
     }
   }
