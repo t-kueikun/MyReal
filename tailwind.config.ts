@@ -27,11 +27,18 @@ const config: Config = {
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' }
+        },
+
+        scaleUp: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
         }
       },
       animation: {
         floatIn: 'floatIn 0.6s ease-out',
-        shimmer: 'shimmer 1.6s ease-in-out infinite'
+        flexIn: 'floatIn 0.3s ease-out',
+        shimmer: 'shimmer 1.6s ease-in-out infinite',
+        scaleUp: 'scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
       }
     }
   },

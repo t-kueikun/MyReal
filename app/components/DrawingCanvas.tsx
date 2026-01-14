@@ -12,8 +12,8 @@ type Tool = 'pen' | 'eraser';
 
 const CANVAS_SIZE = 768;
 
-const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
-  ({ onDirty }, ref) => {
+const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; disabled?: boolean; className?: string }>(
+  ({ onDirty, disabled, className }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [tool, setTool] = useState<Tool>('pen');
     const isDrawingRef = useRef(false);
@@ -34,6 +34,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
         });
       },
       clear: () => {
+        if (disabled) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = getContext();
@@ -42,6 +43,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
         history.current = [];
       },
       undo: () => {
+        if (disabled) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = getContext();
@@ -74,6 +76,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
     };
 
     const handlePointerDown = (event: React.PointerEvent) => {
+      if (disabled) return;
       event.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -94,7 +97,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
     };
 
     const handlePointerMove = (event: React.PointerEvent) => {
-      if (!isDrawingRef.current) return;
+      if (disabled || !isDrawingRef.current) return;
       event.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -123,12 +126,13 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
     };
 
     return (
-      <div className="space-y-4">
+      <div className={`space-y-4 ${className || ''}`}>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             className={`btn ${tool === 'pen' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setTool('pen')}
+            disabled={disabled}
           >
             ペン
           </button>
@@ -136,6 +140,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
             type="button"
             className={`btn ${tool === 'eraser' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setTool('eraser')}
+            disabled={disabled}
           >
             消しゴム
           </button>
@@ -147,6 +152,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
                 ref.current?.undo();
               }
             }}
+            disabled={disabled}
           >
             Undo
           </button>
@@ -158,22 +164,24 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void }>(
                 ref.current?.clear();
               }
             }}
+            disabled={disabled}
           >
             クリア
           </button>
           <span className="tag">透明背景推奨</span>
         </div>
-        <div className="card p-4">
+        <div className={`card p-4 transition-opacity ${disabled ? 'opacity-50 pointer-events-none' : ''} h-[calc(100%-60px)]`}>
           <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            className="w-full max-w-full rounded-2xl bg-white touch-none"
+            className="w-full h-full object-contain rounded-2xl bg-white touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={endDrawing}
             onPointerCancel={endDrawing}
             onPointerLeave={endDrawing}
+            suppressHydrationWarning
           />
         </div>
       </div>

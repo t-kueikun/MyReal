@@ -24,6 +24,38 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
   const [source, setSource] = useState<'draw' | 'upload' | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Timer States
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isTimeUp, setIsTimeUp] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const timerRef = useRef<NodeJS.Timeout>();
+
+  const startDrawing = () => {
+    setIsPlaying(true);
+    setIsTimeUp(false);
+    setTimeLeft(30);
+    // Auto-clear canvas on start if needed? No, let user keep previous scribbles or manual clear.
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          setIsPlaying(false);
+          setIsTimeUp(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleManualStop = () => {
+    clearInterval(timerRef.current);
+    setIsPlaying(false);
+    setIsTimeUp(true);
+    setTimeLeft(0);
+  };
+
   const handleGenerate = async () => {
     setError('');
     if (!consent) {
@@ -76,7 +108,7 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
               描いて作る、今だけのキャラクター
             </h1>
             <p className="text-ink/70">
-              30–60秒で描いてAIで彩る。QRで受け取り、会場でAR撮影。
+              30秒一本勝負！あなたの絵がAIでリッチな3Dキャラに変身します。
             </p>
           </div>
           <div className="flex gap-2">
@@ -91,18 +123,88 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
+      {/* Enlarged Layout: 1.8fr vs 0.8fr */}
+      <div className="grid gap-8 lg:grid-cols-[1.8fr,0.8fr]">
         <section className="space-y-6">
-          <div className="card p-6">
-            <h2 className="font-heading text-xl">1. 描く / 読み込む</h2>
-            <p className="text-sm text-ink/70">
-              線画でも写真でもOK。透明背景がおすすめです。
-            </p>
-            <div className="mt-5 grid gap-6">
-              <DrawingCanvas
-                ref={drawingRef}
-                onDirty={() => setSource('draw')}
-              />
+          <div className="card p-6 relative">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-heading text-xl">1. 描く / 読み込む</h2>
+              {/* Timer Display (Normal View) */}
+              {!isPlaying && !isTimeUp && (
+                <div className="font-mono text-xl font-bold text-ink">
+                  30秒制限
+                </div>
+              )}
+            </div>
+
+            {/* Drawing Container - Toggles Full Screen */}
+            <div className={`transition-all duration-300 ${isPlaying
+              ? 'fixed inset-0 z-50 bg-[#f6f4f0] flex flex-col p-4 animate-scaleUp'
+              : 'relative'
+              }`}>
+
+              {/* Full Screen Header */}
+              {isPlaying && (
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <div className={`font-mono text-4xl font-bold ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-ink'}`}>
+                    {timeLeft}
+                    <span className="text-sm ml-1">SEC</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm px-6"
+                    onClick={handleManualStop}
+                  >
+                    描き終わった！
+                  </button>
+                </div>
+              )}
+
+              <div className={`relative ${isPlaying ? 'flex-1 min-h-0 w-full flex items-center justify-center' : ''}`}>
+                <DrawingCanvas
+                  ref={drawingRef}
+                  onDirty={() => setSource('draw')}
+                  disabled={!isPlaying}
+                  className={isPlaying ? 'h-full w-full object-contain' : ''}
+                />
+
+                {/* Start / TimeUp Overlay */}
+                {!isPlaying && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl animate-fadeIn">
+                    {isTimeUp ? (
+                      <div className="text-center space-y-4">
+                        <h3 className="text-4xl font-heading text-ink">TIME UP!</h3>
+                        <p className="text-ink/70">素晴らしい！</p>
+                        <div className="flex gap-4 justify-center">
+                          <button
+                            onClick={startDrawing}
+                            className="btn btn-ghost"
+                          >
+                            描き直す
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center space-y-6">
+                        <div className="space-y-2">
+                          <h3 className="text-2xl font-heading">お絵かきスタート</h3>
+                          <p className="text-ink/70">30秒で描いてみよう！</p>
+                        </div>
+                        <button
+                          onClick={startDrawing}
+                          className="btn btn-primary text-lg px-10 py-4 h-auto shadow-xl hover:scale-105 transition-transform"
+                        >
+                          START (全画面)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 relative z-10">
+              <p className="text-xs text-center text-ink/50 mb-2">- または写真をアップロード -</p>
               <ImageUploader
                 onSelect={(file) => {
                   setUploadedFile(file);
@@ -149,14 +251,20 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
               </span>
             </label>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+
+
             <button
               type="button"
               className="btn btn-primary w-full"
-              disabled={busy}
+              disabled={busy || (!isTimeUp && !uploadedFile && source !== 'upload')}
               onClick={handleGenerate}
             >
               {busy ? '準備中…' : '生成する'}
             </button>
+            {!isTimeUp && !uploadedFile && source !== 'upload' && (
+              <p className="text-xs text-center text-ink/50">※アップロードするか、お絵かきを完了させてください</p>
+            )}
           </div>
         </aside>
       </div>
