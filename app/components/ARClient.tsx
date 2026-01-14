@@ -851,6 +851,15 @@ function FallbackViewer({
           ctx.save();
           // Translate to Pivot Point
           ctx.translate(centerX + dx, centerY + dy);
+
+          // Add Drop Shadow for grounding
+          if (depth === 0.6) { // Draw shadow only for the first (backmost) layer or generally
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 10;
+          }
+
           ctx.rotate(current.rotation + tiltRotation);
           ctx.transform(1, skewY, skewX, 1, 0, 0);
 
@@ -937,7 +946,6 @@ function FallbackViewer({
     // If gyro is active, tap resets the 'forward' direction
     if (gyroRef.current.active) {
       gyroRef.current.alphaOffset = gyroRef.current.alpha;
-      // Also reset vertical anchor if we implemented beta tracking
       return;
     }
 
@@ -985,6 +993,22 @@ function createLayers(
   const layers: THREE.Mesh[] = [];
 
   const masks = createLayerMasks(image);
+
+  // Shadow Layer (Behind everything)
+  const shadowMaterial = new THREE.MeshBasicMaterial({
+    map: masks.length > 0 ? new THREE.CanvasTexture(masks[0]) : texture, // Use first layer mask for base shape
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.25,
+    alphaTest: 0.1
+  });
+  const shadowMesh = new THREE.Mesh(geometry, shadowMaterial);
+  shadowMesh.position.z = -0.05; // Behind
+  shadowMesh.position.x = 0.02; // Offset for drop shadow effect
+  shadowMesh.position.y = -0.02;
+  shadowMesh.scale.set(1.02, 1.02, 1.02);
+  layers.push(shadowMesh);
+
   masks.forEach((mask, index) => {
     const layerTexture = new THREE.CanvasTexture(mask);
     const material = new THREE.MeshStandardMaterial({
@@ -1156,58 +1180,15 @@ function updateGroup(
   camera: THREE.PerspectiveCamera,
   controls: Controls
 ) {
-  // If no anchorPos, it means we haven't initialized/placed it yet or it's fallback.
-  // But for this func, we assume group is already at world pos.
-
-  // Apply rotation
-  // We want to rotate around its own Y axis (Vertical).
-  // group.rotation.y = controls.rotation; 
-  // BUT: group.lookAt() might have set logic.
-  // Let's just add user rotation to base.
-
-  // Note: "controls.rotation" is an absolute value from slider.
-  // We should add it to the base rotation derived from placement.
-  // But we don't track "placement rotation" well in this stateless func?
-  // We can trust group.rotation.y is persisted between frames if we don't overwrite it fully.
-  // But here we want to overwrite it with "Base + Control".
-
-  // Workaround: We don't reset group.rotation every frame.
-  // We just modify it? No, controls.rotation is a state value.
-  // It needs to be deterministic: Rotation = BaseRotation + ControlRotation.
-
-  // We reset rotation to identities then apply? No.
-  // We need to know the Base Rotation (facing camera).
-  // We stored it implicitly by rotation.y in 'place()'.
-  // But wait, if we overwrite rotation.y, we lose the 'facing camera' aspect?
-  // No, we should store base rotation in userData.
-
-  // Simplified:
-  // We don't change position here (it's world anchored).
-  // We only change rotation and scale.
-
-  group.scale.setScalar(controls.scale);
-
-  // For rotation, we have a problem: 'place()' sets an initial Y rotation.
-  // We should respect that.
-  // Let's assume group.quaternion is correct for "Base".
-  // Actually, let's just rotate the children or inner container if we wanted perfection.
-  // But modifying group.rotation.y directly is fine IF we consider current rotation as "Base + offset"
-  // But since this runs every frame, "rotation += control" would spin it forever.
-
-  // Correct approach:
-  // Rotation = InitialRotation + ControlRotation.
-  // We need to save InitialRotation.
-
   const initialQ = group.userData.initialQuaternion as THREE.Quaternion;
   if (!initialQ) {
     group.userData.initialQuaternion = group.quaternion.clone();
-    return; // Skip first frame if just initialized
+    return;
   }
 
   group.quaternion.copy(initialQ);
   group.rotateY(controls.rotation);
 
-  // Initial Position + Offset
   const anchorPos = group.userData.anchorPos as THREE.Vector3;
   if (anchorPos) {
     group.position.copy(anchorPos);

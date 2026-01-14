@@ -38,6 +38,38 @@ export async function generateWithGemini(
   const useImageModel = isImageModel(env.geminiModel);
 
   return await withBackoff(async () => {
+    // Imagen 3 specific logic (:predict endpoint)
+    if (env.geminiModel.includes('imagen')) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${modelName}:predict`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': env.geminiApiKey
+          },
+          body: JSON.stringify({
+            instances: [{ prompt }],
+            parameters: { sampleCount: 1 }
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.text();
+        logError('Imagen REST failed', {
+          status: res.status,
+          body: body.slice(0, 400)
+        });
+        throw new Error('Imagen REST failed');
+      }
+
+      const data = (await res.json()) as any;
+      const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+      if (!b64) throw new Error('Imagen REST no image data');
+      return Buffer.from(b64, 'base64');
+    }
+
     if (useImageModel) {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent`,
@@ -104,7 +136,8 @@ export async function generateWithGemini(
           }
         ],
         generationConfig: {
-          responseMimeType: 'image/png'
+          // @ts-ignore
+          // responseModalities: ['image']
         }
       });
       const response = result.response;
@@ -140,7 +173,7 @@ export async function generateWithGemini(
               }
             ],
             generationConfig: {
-              responseMimeType: 'image/png'
+              // response_modalities: ['image'] // Reverted: caused 400 error
             }
           })
         }

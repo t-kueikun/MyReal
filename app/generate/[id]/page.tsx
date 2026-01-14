@@ -3,21 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { deleteImageBlob, loadImageBlob } from '../../lib/clientStorage';
-import { clearDraft, loadDraft } from '../../lib/draft';
-import FeedbackForm from '../components/FeedbackForm';
+import { deleteImageBlob, loadImageBlob } from '../../../lib/clientStorage';
+import { clearDraft, loadDraft, loadResult, saveResult, SavedResult } from '../../../lib/draft';
+import FeedbackForm from '../../components/FeedbackForm';
 
-type GenerateResult = {
-  token: string;
-  imageUrl: string;
-  expiresAt: string;
-  provider: 'gemini' | 'openrouter' | 'fallback';
-  geminiFailed?: boolean;
-};
+type GenerateResult = SavedResult;
 
 const AUTO_KEY = 'myreal:auto-generate';
 
-export default function GeneratePage() {
+export default function GeneratePage({ params }: { params: { id: string } }) {
+  const { id: draftId } = params;
   const [state, setState] = useState<'loading' | 'done' | 'error'>('loading');
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [qr, setQr] = useState<string>('');
@@ -25,6 +20,16 @@ export default function GeneratePage() {
   const didRunRef = useRef(false);
 
   const runGenerate = async (force = false) => {
+    // 1. Check if result already exists for this ID (Reload Support)
+    const existingResult = loadResult(draftId);
+    if (existingResult && !force) {
+      setResult(existingResult);
+      setState('done');
+      const url = `${window.location.origin}/ar/${existingResult.token}`;
+      QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
+      return;
+    }
+
     if (!force) {
       const last = Number(sessionStorage.getItem(AUTO_KEY) || '0');
       if (Date.now() - last < 2000) {
@@ -32,10 +37,14 @@ export default function GeneratePage() {
       }
       sessionStorage.setItem(AUTO_KEY, Date.now().toString());
     }
+
     setState('loading');
     setError('');
-    const draft = loadDraft();
-    const blob = await loadImageBlob('input');
+
+    // 2. Load Draft Data using ID
+    const draft = loadDraft(draftId);
+    const blob = await loadImageBlob('input', draftId);
+
     if (!draft || !blob) {
       setError('入力データが見つかりません。最初からやり直してください。');
       setState('error');
@@ -63,13 +72,16 @@ export default function GeneratePage() {
     }
 
     const data = (await res.json()) as GenerateResult;
+
+    // 3. Save Result and Clear Draft
+    saveResult(draftId, data);
     setResult(data);
-    clearDraft();
-    deleteImageBlob('input').catch(() => null);
+    clearDraft(draftId);
+    deleteImageBlob('input', draftId).catch(() => null);
+
     setState('done');
     const url = `${window.location.origin}/ar/${data.token}`;
-    const qrData = await QRCode.toDataURL(url, { margin: 1, width: 240 });
-    setQr(qrData);
+    QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
   };
 
   useEffect(() => {
@@ -79,7 +91,7 @@ export default function GeneratePage() {
       setError('生成に失敗しました。');
       setState('error');
     });
-  }, []);
+  }, [draftId]);
 
   const handleDownload = async () => {
     if (!result) return;

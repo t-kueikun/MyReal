@@ -49,14 +49,18 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
         setError('画像が見つかりません。描くか読み込んでください。');
         return;
       }
-      await saveImageBlob('input', blob);
+
+      const { nanoid } = await import('nanoid');
+      const draftId = nanoid(10); // Short ID
+
+      await saveImageBlob('input', blob, draftId);
       saveDraft({
         palette,
         bgRemove,
         priorityCode: priorityCode.trim() || undefined,
         source: usedSource ?? 'draw'
-      });
-      router.push('/generate');
+      }, draftId);
+      router.push(`/generate/${draftId}`);
     } finally {
       setBusy(false);
     }
