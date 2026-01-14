@@ -1,8 +1,4 @@
-import dynamic from 'next/dynamic';
-
-const ARClient = dynamic(() => import('../components/ARClient'), {
-  ssr: false
-});
+import ARClient from '../components/ARClientWrapper';
 
 const demoSvg = encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">

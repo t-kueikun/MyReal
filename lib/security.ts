@@ -4,7 +4,7 @@ export function getRequestIp(request: NextRequest) {
   if (forwarded) {
     return forwarded.split(',')[0]?.trim() || '0.0.0.0';
   }
-  return request.ip || '0.0.0.0';
+  return request.headers.get('x-real-ip') || '0.0.0.0';
 }
 
 export function assertSameOrigin(request: NextRequest) {
