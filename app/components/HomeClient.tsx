@@ -22,6 +22,7 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
       saveDraft({
         palette: ['#f08f6f', '#f3c969', '#5a9bd8'],
         bgRemove: true,
+        mood: 'random',
         source: 'upload'
       }, draftId);
       router.push(`/generate/${draftId}`);

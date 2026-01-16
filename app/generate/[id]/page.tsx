@@ -58,6 +58,7 @@ export default function GeneratePage() {
     form.append('file', file);
     form.append('palette', JSON.stringify(draft.palette));
     form.append('bgRemove', draft.bgRemove ? '1' : '0');
+    form.append('mood', draft.mood || 'random');
     form.append('source', draft.source);
     if (draft.priorityCode) form.append('priorityCode', draft.priorityCode);
 
