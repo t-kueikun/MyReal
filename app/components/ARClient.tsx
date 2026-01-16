@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import NextImage from 'next/image';
 import * as THREE from 'three';
 import { saveCapture, listCaptures, type GalleryItem } from '../../lib/gallery';
+import QuickLookButton from './QuickLookButton';
 
 type Props = {
   imageUrl: string;
@@ -24,6 +25,14 @@ const DEFAULT_CONTROLS: Controls = {
   offsetY: 0
 };
 
+function isIOSQuickLook() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isIPadOS = ua.includes('Mac') && typeof document !== 'undefined' && 'ontouchend' in document;
+  return isIOS || isIPadOS;
+}
+
 export default function ARClient({ imageUrl, token }: Props) {
   const [supportsXR, setSupportsXR] = useState(false);
   const [modeChecked, setModeChecked] = useState(false);
@@ -32,7 +41,9 @@ export default function ARClient({ imageUrl, token }: Props) {
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [voiceGuide, setVoiceGuide] = useState(false);
   const [transparentBackground, setTransparentBackground] = useState(false);
+  const [stabilizeView, setStabilizeView] = useState(false);
   const modeInitRef = useRef(false);
+  const quickLookOnly = !supportsXR && isIOSQuickLook();
 
   useEffect(() => {
     let active = true;
@@ -87,6 +98,20 @@ export default function ARClient({ imageUrl, token }: Props) {
 
   const useXr = viewMode === 'xr' && supportsXR;
 
+  if (quickLookOnly) {
+    return (
+      <div className="space-y-6">
+        <div className="card p-6 space-y-4">
+          <h2 className="font-heading text-lg">AR撮影</h2>
+          <p className="text-sm text-ink/60">
+            「iPhone ARで開く」から配置して撮影してください。
+          </p>
+          <QuickLookButton imageUrl={imageUrl} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-ink/60">
@@ -123,7 +148,9 @@ export default function ARClient({ imageUrl, token }: Props) {
             </span>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <QuickLookButton imageUrl={imageUrl} />
+      )}
       <div className="grid gap-6 lg:grid-cols-[1fr,320px]">
         <div className="card p-4">
           {modeChecked ? (
@@ -135,6 +162,7 @@ export default function ARClient({ imageUrl, token }: Props) {
                 controls={controls}
                 onCapture={handleCapture}
                 transparent={transparentBackground}
+                stabilize={stabilizeView}
               />
             )
           ) : (
@@ -153,6 +181,17 @@ export default function ARClient({ imageUrl, token }: Props) {
             />
             背景を透過して保存
           </label>
+          {!useXr ? (
+            <label className="flex items-center gap-2 text-sm text-ink/70 font-bold bg-ink/5 p-2 rounded-lg">
+              <input
+                type="checkbox"
+                className="toggle toggle-primary toggle-sm"
+                checked={stabilizeView}
+                onChange={(event) => setStabilizeView(event.target.checked)}
+              />
+              固定モード (追従なし)
+            </label>
+          ) : null}
           <label className="flex flex-col gap-2 text-sm text-ink/70">
             スケール
             <input
@@ -337,7 +376,7 @@ function XRViewer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const controlsRef = useRef(controls);
   const tiltRef = useRef({ x: 0, y: 0 });
-  const sceneRef = useRef<{ place: () => void } | null>(null);
+  const sceneRef = useRef<{ place: (preferHit?: boolean) => void } | null>(null);
 
   useEffect(() => {
     controlsRef.current = controls;
@@ -359,7 +398,11 @@ function XRViewer({
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let group: THREE.Group | null = null;
-    let xrSession: { end?: () => Promise<void> } | null = null;
+    let xrSession: XRSession | null = null;
+    let hitTestSource: XRHitTestSource | null = null;
+    let hitTestSpace: XRReferenceSpace | null = null;
+    let hitTestRefSpace: XRReferenceSpace | null = null;
+    let reticle: THREE.Mesh | null = null;
     let frameId = 0;
     let disposed = false;
 
@@ -389,6 +432,14 @@ function XRViewer({
       const directional = new THREE.DirectionalLight(0xffffff, 1.2);
       directional.position.set(1, 2, 1);
       scene.add(ambient, directional);
+
+      reticle = new THREE.Mesh(
+        new THREE.RingGeometry(0.06, 0.085, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
+      );
+      reticle.matrixAutoUpdate = false;
+      reticle.visible = false;
+      scene.add(reticle);
 
       const texture = await loadTexture(imageUrl);
       const { normalMap, avgLuminance } = createNormalMap(texture.image as HTMLImageElement);
@@ -448,22 +499,32 @@ function XRViewer({
 
       scene.add(group);
 
-      const place = () => {
+      const place = (preferHit = true) => {
         if (!camera || !group) return;
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        dir.y = 0;
-        dir.normalize();
+        if (preferHit && reticle?.visible) {
+          const hitPosition = new THREE.Vector3();
+          reticle.matrix.decompose(hitPosition, new THREE.Quaternion(), new THREE.Vector3());
+          group.position.copy(hitPosition);
+        } else {
+          const dir = new THREE.Vector3();
+          camera.getWorldDirection(dir);
+          dir.y = 0;
+          dir.normalize();
 
-        // Place 1.2m in front of camera
-        group.position.copy(camera.position).add(dir.multiplyScalar(1.2));
+          // Place 1.2m in front of camera
+          group.position.copy(camera.position).add(dir.multiplyScalar(1.2));
+        }
+        // Face camera on placement to keep the card upright
         group.lookAt(camera.position.x, group.position.y, camera.position.z);
-        // Reset rotation offset base to 0 relative to lookAt
         group.rotation.y += Math.PI; // Face the camera
         group.userData.baseRotation = 0;
         group.userData.anchorPos = group.position.clone();
+        group.userData.initialQuaternion = group.quaternion.clone();
       };
-      sceneRef.current = { place };
+
+      const placeOnHit = () => place(true);
+
+      sceneRef.current = { place: placeOnHit };
 
       const startButton = container.querySelector<HTMLButtonElement>('[data-ar-start]');
       if (startButton) {
@@ -471,18 +532,46 @@ function XRViewer({
           if (!renderer || !renderer.xr) return;
           const session = await navigator.xr?.requestSession('immersive-ar', {
             requiredFeatures: ['local-floor'],
-            optionalFeatures: ['dom-overlay'],
+            optionalFeatures: ['dom-overlay', 'hit-test'],
             domOverlay: { root: container }
           });
           if (!session) return;
           xrSession = session;
+          renderer.xr.setReferenceSpaceType('local-floor');
           await renderer.xr.setSession(session);
 
-          place();
+          try {
+            hitTestSpace = await session.requestReferenceSpace('viewer');
+            hitTestRefSpace = await session.requestReferenceSpace('local-floor');
+            hitTestSource = await session.requestHitTestSource({ space: hitTestSpace });
+          } catch {
+            hitTestSource = null;
+            hitTestSpace = null;
+            hitTestRefSpace = null;
+          }
 
-          renderer.setAnimationLoop(() => {
+          placeOnHit();
+
+          renderer.setAnimationLoop((_time, frame) => {
             frameId += 1;
             if (!scene || !camera || !group) return;
+            if (frame && hitTestSource && hitTestRefSpace && reticle) {
+              const hits = frame.getHitTestResults(hitTestSource);
+              if (hits.length > 0) {
+                const hit = hits[0];
+                const pose = hit.getPose(hitTestRefSpace);
+                if (pose) {
+                  reticle.visible = true;
+                  reticle.matrix.fromArray(pose.transform.matrix);
+                } else {
+                  reticle.visible = false;
+                }
+              } else {
+                reticle.visible = false;
+              }
+            } else if (reticle) {
+              reticle.visible = false;
+            }
             updateGroup(group, camera, controlsRef.current);
             applyParallax(group, tiltRef.current);
             renderer!.render(scene, camera);
@@ -490,6 +579,11 @@ function XRViewer({
           session.addEventListener('end', () => {
             renderer?.setAnimationLoop(null);
             xrSession = null;
+            hitTestSource?.cancel?.();
+            hitTestSource = null;
+            hitTestSpace = null;
+            hitTestRefSpace = null;
+            if (reticle) reticle.visible = false;
           });
         };
       }
@@ -514,6 +608,8 @@ function XRViewer({
     return () => {
       disposed = true;
       xrSession?.end?.().catch(() => null);
+      hitTestSource?.cancel?.();
+      hitTestSource = null;
       if (renderer) {
         renderer.setAnimationLoop(null);
         renderer.dispose();
@@ -557,7 +653,13 @@ function XRViewer({
       <div className="absolute top-4 left-4 flex gap-2">
         <button
           className="btn btn-sm btn-ghost bg-black/40 text-white backdrop-blur"
-          onClick={() => sceneRef.current?.place()}
+          onClick={() => sceneRef.current?.place(true)}
+        >
+          面に配置
+        </button>
+        <button
+          className="btn btn-sm btn-ghost bg-black/40 text-white backdrop-blur"
+          onClick={() => sceneRef.current?.place(false)}
         >
           正面に配置
         </button>
@@ -577,19 +679,30 @@ function FallbackViewer({
   imageUrl,
   controls,
   onCapture,
-  transparent
+  transparent,
+  stabilize
 }: {
   imageUrl: string;
   controls: Controls;
   onCapture: (dataUrl: string) => void;
   transparent: boolean;
+  stabilize: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef(controls);
+  const orientationHandlerRef = useRef<((e: DeviceOrientationEvent) => void) | null>(null);
 
   // Gyro state: active, offset, current smoothed values
-  const gyroRef = useRef({ alpha: 0, beta: 0, gamma: 0, active: false, alphaOffset: 0 });
+  const gyroRef = useRef({
+    alpha: 0,
+    beta: 0,
+    gamma: 0,
+    active: false,
+    alphaOffset: 0,
+    betaOffset: 0,
+    gammaOffset: 0
+  });
   const [hasGyro, setHasGyro] = useState(false);
   const [permissionNeeded, setPermissionNeeded] = useState(false);
 
@@ -614,6 +727,8 @@ function FallbackViewer({
       if (!gyro.active && (alpha !== 0 || beta !== 0 || gamma !== 0)) {
         gyro.active = true;
         gyro.alphaOffset = alpha;
+        gyro.betaOffset = beta;
+        gyro.gammaOffset = gamma;
         setHasGyro(true);
       }
 
@@ -635,6 +750,8 @@ function FallbackViewer({
       gyro.gamma += (gamma - gyro.gamma) * k;
     };
 
+    orientationHandlerRef.current = handleOrientation;
+
     if (
       typeof DeviceOrientationEvent !== 'undefined' &&
       typeof (DeviceOrientationEvent as any).requestPermission === 'function'
@@ -653,30 +770,24 @@ function FallbackViewer({
     };
   }, []);
 
+  useEffect(() => {
+    if (!stabilize) return;
+    const gyro = gyroRef.current;
+    if (gyro.active) {
+      gyro.betaOffset = gyro.beta;
+      gyro.gammaOffset = gyro.gamma;
+    }
+  }, [stabilize]);
+
   const requestPermission = async () => {
     try {
       const response = await (DeviceOrientationEvent as any).requestPermission();
       if (response === 'granted') {
         setPermissionNeeded(false);
-        // Re-attach listener
-        const handleOrientation = (e: DeviceOrientationEvent) => {
-          const alpha = e.alpha || 0;
-          const beta = e.beta || 0;
-          const gamma = e.gamma || 0;
-          const gyro = gyroRef.current;
-
-          if (!gyro.active) {
-            gyro.active = true;
-            gyro.alphaOffset = alpha;
-            setHasGyro(true);
-          }
-          // Use simpler smoothing logic here to match effect
-          // ... (same as above, or simpler direct assign for robustness first)
-          gyro.alpha = alpha; // Simplify for now
-          gyro.beta = beta;
-          gyro.gamma = gamma;
-        };
-        window.addEventListener('deviceorientation', handleOrientation);
+        const handler = orientationHandlerRef.current;
+        if (handler) {
+          window.addEventListener('deviceorientation', handler);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -792,12 +903,16 @@ function FallbackViewer({
 
         const current = controlsRef.current;
         const gyro = gyroRef.current;
+        const diffGamma = gyro.gamma - gyro.gammaOffset;
+        const diffBeta = gyro.beta - gyro.betaOffset;
 
         // Calculate tracked position based on gyro
-        let targetX = anchorRef.current.x;
-        // let targetY = anchorRef.current.y;
+        const baseX = anchorRef.current.x;
+        const baseY = anchorRef.current.y;
+        let targetX = baseX;
+        let targetY = baseY;
 
-        if (gyro.active) {
+        if (gyro.active && !stabilize) {
           // How much have we turned from the "zero" point?
           let diff = gyro.alpha - gyro.alphaOffset;
           if (diff > 180) diff -= 360;
@@ -812,8 +927,11 @@ function FallbackViewer({
           targetX = 0.5 + shiftX;
         }
 
+        targetX = clamp(targetX, 0.1, 0.9);
+        targetY = clamp(targetY, 0.3, 0.95);
+
         const anchorX = targetX * width + current.offsetX * width;
-        const anchorY = anchorRef.current.y * height + current.offsetY * height; // Static Y for now, or add Beta support
+        const anchorY = targetY * height + current.offsetY * height;
 
         const baseScale =
           Math.min(width / img.width, height / img.height) * 0.7;
@@ -829,14 +947,15 @@ function FallbackViewer({
         // but parallax adds depth to layers so keep it.
         // We use Gamma (left/right tilt) and Beta (front/back)
 
-        const tiltX = clamp(gyro.gamma / 45, -1, 1);
-        const tiltY = clamp(gyro.beta / 45, -1, 1);
-        const tiltRotation = tiltX * 0.08;
-        const skewX = tiltX * 0.1;
-        const skewY = tiltY * 0.06;
+        const tiltScale = stabilize ? 0 : 1;
+        const tiltX = stabilize ? 0 : clamp(gyro.gamma / 45, -1, 1);
+        const tiltY = stabilize ? 0 : clamp(gyro.beta / 45, -1, 1);
+        const tiltRotation = tiltX * 0.08 * tiltScale;
+        const skewX = tiltX * 0.1 * tiltScale;
+        const skewY = tiltY * 0.06 * tiltScale;
 
-        const parallaxX = tiltX * 12;
-        const parallaxY = tiltY * 10;
+        const parallaxX = tiltX * 12 * tiltScale;
+        const parallaxY = tiltY * 10 * tiltScale;
 
         // Pivot Offset: Rotate around visual center
         const pivotOffsetX = (visualCenterRef.current.x - 0.5) * w;
@@ -932,7 +1051,7 @@ function FallbackViewer({
       video.pause();
       (video.srcObject as MediaStream | null) = null;
     };
-  }, [imageUrl, onCapture, transparent]);
+  }, [imageUrl, onCapture, transparent, stabilize]);
 
   const captureRequestRef = useRef(false);
 
@@ -944,8 +1063,12 @@ function FallbackViewer({
 
   const handlePlace = (event: React.PointerEvent<HTMLCanvasElement>) => {
     // If gyro is active, tap resets the 'forward' direction
-    if (gyroRef.current.active) {
+    if (gyroRef.current.active && !stabilize) {
       gyroRef.current.alphaOffset = gyroRef.current.alpha;
+      if (stabilize) {
+        gyroRef.current.betaOffset = gyroRef.current.beta;
+        gyroRef.current.gammaOffset = gyroRef.current.gamma;
+      }
       return;
     }
 
