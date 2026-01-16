@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Pencil, Eraser, Undo2, RotateCcw, ImagePlus } from 'lucide-react';
 
 export type DrawingCanvasHandle = {
   exportBlob: () => Promise<Blob | null>;
@@ -126,56 +127,62 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     return (
-      <div className={`space-y-4 ${className || ''}`}>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className={`relative flex flex-col h-full ${className || ''}`}>
+        {/* Floating Toolbar */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 p-1.5 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-ink/5">
           <button
             type="button"
-            className={`btn ${tool === 'pen' ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn-icon ${tool === 'pen' ? 'bg-ink text-white hover:bg-ink' : 'text-ink/60'}`}
             onClick={() => setTool('pen')}
             disabled={disabled}
+            title="ペン"
           >
-            ペン
+            <Pencil size={20} />
           </button>
           <button
             type="button"
-            className={`btn ${tool === 'eraser' ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn-icon ${tool === 'eraser' ? 'bg-ink text-white hover:bg-ink' : 'text-ink/60'}`}
             onClick={() => setTool('eraser')}
             disabled={disabled}
+            title="消しゴム"
           >
-            消しゴム
+            <Eraser size={20} />
           </button>
+          <div className="w-px h-6 bg-ink/10 mx-1" />
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn-icon text-ink/60 hover:text-ink"
             onClick={() => {
               if (ref && typeof ref !== 'function') {
                 ref.current?.undo();
               }
             }}
             disabled={disabled}
+            title="元に戻す"
           >
-            Undo
+            <Undo2 size={20} />
           </button>
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn-icon text-red-500/80 hover:text-red-500 hover:bg-red-50"
             onClick={() => {
               if (ref && typeof ref !== 'function') {
                 ref.current?.clear();
               }
             }}
             disabled={disabled}
+            title="全消去"
           >
-            クリア
+            <RotateCcw size={20} />
           </button>
-          <span className="tag">透明背景推奨</span>
         </div>
-        <div className={`card p-4 transition-opacity ${disabled ? 'opacity-50 pointer-events-none' : ''} h-[calc(100%-60px)]`}>
+
+        <div className={`flex-1 relative rounded-3xl overflow-hidden bg-white shadow-inner ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
           <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            className="w-full h-full object-contain rounded-2xl bg-white touch-none"
+            className="w-full h-full object-contain touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={endDrawing}
@@ -183,6 +190,11 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
             onPointerLeave={endDrawing}
             suppressHydrationWarning
           />
+          {!disabled && (
+            <div className="absolute bottom-4 right-4 pointer-events-none opacity-50">
+               <span className="tag bg-white/80">透明背景</span>
+            </div>
+          )}
         </div>
       </div>
     );

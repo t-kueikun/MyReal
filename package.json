@@ -21,6 +21,7 @@
     "dotenv": "^17.2.3",
     "file-type": "^19.0.0",
     "idb": "^8.0.0",
+    "lucide-react": "^0.562.0",
     "nanoid": "^5.1.6",
     "next": "^14.2.5",
     "p-queue": "^8.0.1",
@@ -31,7 +32,6 @@
     "three": "^0.165.0",
     "zod": "^3.23.8"
   },
-  "optionalDependencies": {},
   "devDependencies": {
     "@cloudflare/next-on-pages": "1.11.3",
     "@playwright/test": "^1.46.0",
