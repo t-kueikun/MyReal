@@ -197,11 +197,9 @@ async function buildUsdZ(imageUrl: string) {
     maxTextureSize: 1024
   });
 
-  const buffer = data.buffer.slice(
-    data.byteOffset,
-    data.byteOffset + data.byteLength
-  );
-  return new Blob([buffer], { type: 'model/vnd.usdz+zip' });
+  const arrayBuffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(arrayBuffer).set(data);
+  return new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
 }
 
 export default function QuickLookButton({ imageUrl }: { imageUrl: string }) {
