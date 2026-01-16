@@ -38,6 +38,27 @@ export async function saveImage(
   const filename = `${prefix}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.png`;
+  return await saveFileWithKey(filename, buffer, contentType);
+}
+
+export async function saveFile(
+  buffer: Buffer,
+  contentType: string,
+  prefix = 'generated',
+  extension = 'bin'
+) {
+  const ext = extension.replace(/^\./, '') || 'bin';
+  const filename = `${prefix}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}.${ext}`;
+  return await saveFileWithKey(filename, buffer, contentType);
+}
+
+async function saveFileWithKey(
+  filename: string,
+  buffer: Buffer,
+  contentType: string
+) {
   if (
     env.storageProvider === 'supabase' &&
     isSupabaseEnabled() &&
