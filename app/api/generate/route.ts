@@ -14,6 +14,7 @@ import { checkRateLimit, hashIp } from '../../../lib/rateLimit';
 import { assertSameOrigin, getRequestIp } from '../../../lib/security';
 import { env } from '../../../lib/config';
 import { logError, logInfo } from '../../../lib/logger';
+import { resolveMood } from '../../../lib/mood';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
       paletteRaw ? JSON.parse(String(paletteRaw)) : []
     );
     const bgRemove = form.get('bgRemove') === '1';
+    const moodRaw = form.get('mood');
+    const moodId = typeof moodRaw === 'string' ? moodRaw : 'random';
+    const mood = resolveMood(moodId);
     const source = form.get('source') === 'upload' ? 'upload' : 'draw';
     const priorityCode = String(form.get('priorityCode') || '');
 
@@ -81,7 +85,7 @@ export async function POST(request: NextRequest) {
       if (env.openRouterApiKey) {
         aiAttempted = true;
         try {
-          output = await generateWithOpenRouter(processed, palette);
+          output = await generateWithOpenRouter(processed, palette, mood);
           provider = 'openrouter';
         } catch (error) {
           logError('OpenRouter generation failed', { error: String(error) });
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
       if (!output && env.geminiApiKey) {
         aiAttempted = true;
         try {
-          output = await generateWithGemini(processed, palette);
+          output = await generateWithGemini(processed, palette, mood);
           provider = 'gemini';
         } catch (error) {
           logError('Gemini generation failed', { error: String(error) });

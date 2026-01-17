@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:all": "npm run test:unit && npm run test:e2e",
     "cleanup": "tsx scripts/cleanup.ts",
-    "cf:build": "next build --webpack && npx @cloudflare/next-on-pages",
+    "cf:build": "next build && npx @cloudflare/next-on-pages",
     "share": "ngrok http 3000"
   },
   "dependencies": {

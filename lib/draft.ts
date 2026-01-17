@@ -3,6 +3,7 @@
 export type GenerationDraft = {
   palette: string[];
   bgRemove: boolean;
+  mood?: string;
   priorityCode?: string;
   source: 'draw' | 'upload';
 };
