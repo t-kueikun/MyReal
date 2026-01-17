@@ -1,18 +1,15 @@
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
+
 import { verifyToken } from '../../../lib/token';
 import { getMeta } from '../../../lib/metadata';
 import { getImageUrl } from '../../../lib/storage';
 
-const ARClient = dynamic(() => import('../../components/ARClient'), {
-  ssr: false
-});
+import ARClient from '../../components/ARClientWrapper';
 
-export default async function ArPage({
-  params
-}: {
-  params: { token: string };
+export default async function ArPage(props: {
+  params: Promise<{ token: string }>;
 }) {
+  const params = await props.params;
   const verify = verifyToken(params.token);
   if (!verify.valid) {
     return (

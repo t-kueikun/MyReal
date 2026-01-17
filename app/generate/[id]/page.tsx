@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import QRCode from 'qrcode';
 import { deleteImageBlob, loadImageBlob } from '../../../lib/clientStorage';
 import { clearDraft, loadDraft, loadResult, saveResult, SavedResult } from '../../../lib/draft';
@@ -11,8 +12,9 @@ type GenerateResult = SavedResult;
 
 const AUTO_KEY = 'myreal:auto-generate';
 
-export default function GeneratePage({ params }: { params: { id: string } }) {
-  const { id: draftId } = params;
+export default function GeneratePage() {
+  const params = useParams();
+  const draftId = params.id as string;
   const [state, setState] = useState<'loading' | 'done' | 'error'>('loading');
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [qr, setQr] = useState<string>('');

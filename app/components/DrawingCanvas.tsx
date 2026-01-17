@@ -17,6 +17,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
   ({ onDirty, disabled, className }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [tool, setTool] = useState<Tool>('pen');
+    const [penSize, setPenSize] = useState(6);
+    const [eraserSize, setEraserSize] = useState(24);
     const isDrawingRef = useRef(false);
     const history = useRef<ImageData[]>([]);
 
@@ -66,13 +68,15 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       ctx.fillStyle = 'transparent';
     }, []);
 
-    const getPos = (event: PointerEvent | React.PointerEvent) => {
+    const getPos = (event: React.PointerEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return { x: 0, y: 0 };
       const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
       return {
-        x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-        y: ((event.clientY - rect.top) / rect.height) * canvas.height
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
       };
     };
 
@@ -83,16 +87,21 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       if (!canvas) return;
       const ctx = getContext();
       if (!ctx) return;
-      if (canvas.setPointerCapture) {
-        canvas.setPointerCapture(event.pointerId);
-      }
+
+      canvas.setPointerCapture(event.pointerId);
+
+      // Save state
       history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      if (history.current.length > 20) history.current.shift();
+
       const { x, y } = getPos(event);
       ctx.beginPath();
       ctx.moveTo(x, y);
+
       ctx.strokeStyle = tool === 'pen' ? '#101114' : 'rgba(0,0,0,0)';
-      ctx.lineWidth = tool === 'pen' ? 6 : 24;
+      ctx.lineWidth = tool === 'pen' ? penSize : eraserSize;
       ctx.globalCompositeOperation = tool === 'pen' ? 'source-over' : 'destination-out';
+
       isDrawingRef.current = true;
       onDirty?.();
     };
@@ -100,26 +109,20 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     const handlePointerMove = (event: React.PointerEvent) => {
       if (disabled || !isDrawingRef.current) return;
       event.preventDefault();
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+      const { x, y } = getPos(event);
       const ctx = getContext();
       if (!ctx) return;
-      const { x, y } = getPos(event);
       ctx.lineTo(x, y);
       ctx.stroke();
     };
 
     const endDrawing = (event?: React.PointerEvent) => {
       if (event) {
-        event.preventDefault();
         const canvas = canvasRef.current;
-        if (canvas && canvas.releasePointerCapture) {
-          canvas.releasePointerCapture(event.pointerId);
-        }
+        if (canvas) canvas.releasePointerCapture(event.pointerId);
+        event.preventDefault();
       }
       isDrawingRef.current = false;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
       const ctx = getContext();
       if (!ctx) return;
       ctx.closePath();
@@ -192,7 +195,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
           />
           {!disabled && (
             <div className="absolute bottom-4 right-4 pointer-events-none opacity-50">
-               <span className="tag bg-white/80">透明背景</span>
+              <span className="tag bg-white/80">透明背景</span>
             </div>
           )}
         </div>

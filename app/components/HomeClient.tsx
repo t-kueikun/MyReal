@@ -11,18 +11,8 @@ import QueueStatus from './QueueStatus';
 import { saveImageBlob } from '../../lib/clientStorage';
 import { saveDraft } from '../../lib/draft';
 
-const DEFAULT_PALETTE = ['#f08f6f', '#f3c969', '#5a9bd8'];
-
 export default function HomeClient({ eventMode }: { eventMode: boolean }) {
   const router = useRouter();
-  const drawingRef = useRef<DrawingCanvasHandle | null>(null);
-  const [palette, setPalette] = useState(DEFAULT_PALETTE);
-  const [bgRemove, setBgRemove] = useState(true);
-  const [priorityCode, setPriorityCode] = useState('');
-  const [consent, setConsent] = useState(false);
-  const [error, setError] = useState('');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [source, setSource] = useState<'draw' | 'upload' | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Timer States
@@ -31,6 +21,17 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
   const [timeLeft, setTimeLeft] = useState(30);
   const [progress, setProgress] = useState(100);
   const timerRef = useRef<NodeJS.Timeout>();
+
+  // Inputs
+  const [palette, setPalette] = useState<string[]>(['#f08f6f', '#f3c969', '#5a9bd8']);
+  const [bgRemove, setBgRemove] = useState(true);
+  const [priorityCode, setPriorityCode] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [error, setError] = useState('');
+
+  const [source, setSource] = useState<'draw' | 'upload'>('draw');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const drawingRef = useRef<DrawingCanvasHandle>(null);
 
   useEffect(() => {
     setProgress((timeLeft / 30) * 100);
@@ -69,37 +70,54 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
       setError('同意のチェックをお願いします。');
       return;
     }
+
     setBusy(true);
+
     try {
-      let blob: Blob | null = null;
-      let usedSource: 'draw' | 'upload' | null = source;
-      if (source === 'upload' && uploadedFile) {
-        blob = uploadedFile;
-      } else if (source === 'draw') {
-        blob = (await drawingRef.current?.exportBlob()) ?? null;
-      } else if (uploadedFile) {
-        blob = uploadedFile;
-        usedSource = 'upload';
+      let file: File | Blob | null = null;
+
+      if (source === 'upload') {
+        if (!uploadedFile) {
+          setError('画像をアップロードしてください。');
+          setBusy(false);
+          return;
+        }
+        file = uploadedFile;
       } else {
-        blob = (await drawingRef.current?.exportBlob()) ?? null;
-        usedSource = 'draw';
-      }
-      if (!blob) {
-        setError('画像が見つかりません。描くか読み込んでください。');
-        return;
+        // Draw source
+        if (!drawingRef.current) {
+          setError('キャンバスの準備ができていません。');
+          setBusy(false);
+          return;
+        }
+        file = await drawingRef.current.exportBlob();
+        if (!file) {
+          setError('お絵かきデータが空です。');
+          setBusy(false);
+          return;
+        }
       }
 
       const { nanoid } = await import('nanoid');
-      const draftId = nanoid(10); // Short ID
+      const draftId = nanoid(10);
 
-      await saveImageBlob('input', blob, draftId);
+      // Save image locally (Client Storage)
+      await saveImageBlob('input', file, draftId);
+
+      // Save draft metadata logic
       saveDraft({
         palette,
         bgRemove,
-        priorityCode: priorityCode.trim() || undefined,
-        source: usedSource ?? 'draw'
+        source,
+        priorityCode
       }, draftId);
+
+      // Navigate to generation page
       router.push(`/generate/${draftId}`);
+
+    } catch (e) {
+      console.error(e);
+      setError('エラーが発生しました。もう一度お試しください。');
     } finally {
       setBusy(false);
     }
@@ -149,11 +167,19 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
         <section className="space-y-6">
           {/* Main Card - Refactored for Full Screen */}
           <div className="min-h-[500px] relative">
-            <div className={`flex flex-col isolate transition-all duration-300 ${isPlaying ? 'fixed inset-0 z-50 bg-[#f6f4f0] h-full w-full' : 'relative h-full'}`}>
+            <div className={`
+              flex flex-col isolate transition-all duration-500 ease-in-out
+              ${isPlaying
+                ? 'fixed inset-0 z-50 bg-[#f6f4f0] h-full w-full'
+                : 'relative h-full min-h-[500px]'
+              }
+            `}>
+              {/* Background Card Layer - Only visible when not playing */}
               <div className={`absolute inset-0 card -z-10 ${isPlaying ? 'opacity-0' : 'opacity-100'}`} />
 
               {/* Content Layer */}
               <div className="relative z-10 flex flex-col flex-1 p-1">
+                {/* Header: Hide when playing */}
                 <div className={`p-5 flex items-center justify-between border-b border-ink/5 ${isPlaying ? 'hidden' : ''}`}>
                   <div className="flex items-center gap-2">
                     <div className="p-2 rounded-full bg-accent/10 text-accent">
@@ -162,16 +188,18 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
                     <h2 className="font-heading text-xl font-bold">1. 描く / 読み込む</h2>
                   </div>
 
-                  {/* Time Display for Desktop */}
-                  {!isPlaying && !isTimeUp && (
+                  {!isTimeUp && (
                     <span className="font-mono font-bold text-ink/40 text-sm bg-ink/5 px-3 py-1 rounded-full">
                       LIMIT: 30s
                     </span>
                   )}
                 </div>
 
-                {/* Drawing Content */}
-                <div className={`flex flex-col flex-1 transition-all duration-500 ${isPlaying ? 'p-4 md:p-8 animate-scaleUp' : 'p-4 relative'}`}>
+                {/* Drawing Content Area */}
+                <div className={`
+                  flex flex-col flex-1 transition-all duration-500
+                  ${isPlaying ? 'p-4 md:p-8 animate-scaleUp' : 'p-4 relative'}
+                `}>
 
                   {/* Full Screen Header */}
                   {isPlaying && (
@@ -377,6 +405,3 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
     </div>
   );
 }
-
-// Helper component for icon import if needed, but imported at top.
-

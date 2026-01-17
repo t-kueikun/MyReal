@@ -5,8 +5,9 @@ import { verifyToken } from '../../../../lib/token';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { token: string } }
+  props: { params: Promise<{ token: string }> }
 ) {
+  const params = await props.params;
   const verify = verifyToken(params.token);
   if (!verify.valid) {
     return NextResponse.json({ valid: false }, { status: 404 });
