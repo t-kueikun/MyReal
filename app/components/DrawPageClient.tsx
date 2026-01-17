@@ -8,14 +8,17 @@ import { saveImageBlob } from '../../lib/clientStorage';
 import { saveDraft } from '../../lib/draft';
 import Link from 'next/link';
 import { ChevronLeft, Check, SlidersHorizontal } from 'lucide-react';
+import { MOOD_OPTIONS, type MoodId } from '../../lib/mood';
 
 const DEFAULT_PALETTE = ['#f08f6f', '#f3c969', '#5a9bd8'];
+const DEFAULT_MOOD: MoodId = 'random';
 
 export default function DrawPageClient() {
     const router = useRouter();
     const drawingRef = useRef<DrawingCanvasHandle | null>(null);
     const [palette, setPalette] = useState(DEFAULT_PALETTE);
     const [bgRemove, setBgRemove] = useState(true);
+    const [mood, setMood] = useState<MoodId>(DEFAULT_MOOD);
     const [busy, setBusy] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
 
@@ -35,6 +38,7 @@ export default function DrawPageClient() {
             saveDraft({
                 palette,
                 bgRemove,
+                mood,
                 source: 'draw'
             }, draftId);
 
@@ -76,6 +80,21 @@ export default function DrawPageClient() {
                     <div>
                         <label className="text-xs font-bold text-ink/50 uppercase tracking-widest mb-2 block">カラーパレット</label>
                         <PalettePicker value={palette} onChange={setPalette} />
+                    </div>
+                    <div className="border-t border-ink/10 pt-3">
+                        <label className="text-xs font-bold text-ink/50 uppercase tracking-widest mb-2 block">仕上げムード</label>
+                        <select
+                            className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm"
+                            value={mood}
+                            onChange={(e) => setMood(e.target.value as MoodId)}
+                        >
+                            {MOOD_OPTIONS.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="mt-2 text-xs text-ink/50">おまかせは毎回ランダムです。</p>
                     </div>
                     <div className="border-t border-ink/10 pt-3">
                         <label className="flex items-center gap-3 text-sm font-medium">

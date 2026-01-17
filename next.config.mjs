@@ -5,6 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   output: 'standalone',
+  turbopack: {},
   webpack: (config, { isServer }) => {
     if (isServer) {
       if (Array.isArray(config.externals)) {
