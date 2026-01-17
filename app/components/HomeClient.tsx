@@ -20,7 +20,7 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
   const [isTimeUp, setIsTimeUp] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
   const [progress, setProgress] = useState(100);
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Inputs
   const [palette, setPalette] = useState<string[]>(['#f08f6f', '#f3c969', '#5a9bd8']);
