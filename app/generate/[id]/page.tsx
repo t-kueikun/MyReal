@@ -5,7 +5,15 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import QRCode from 'qrcode';
 import { deleteImageBlob, loadImageBlob } from '../../../lib/clientStorage';
-import { clearDraft, loadDraft, loadResult, saveResult, SavedResult } from '../../../lib/draft';
+import {
+  clearDraft,
+  loadDraft,
+  loadResult,
+  saveResult,
+  type GenerationDraft,
+  type SavedResult
+} from '../../../lib/draft';
+import { MOOD_OPTIONS, type MoodId } from '../../../lib/mood';
 import FeedbackForm from '../../components/FeedbackForm';
 
 type GenerateResult = SavedResult;
@@ -15,10 +23,13 @@ const AUTO_KEY = 'myreal:auto-generate';
 export default function GeneratePage() {
   const params = useParams();
   const draftId = params.id as string;
-  const [state, setState] = useState<'loading' | 'done' | 'error'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'done' | 'error'>('loading');
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [qr, setQr] = useState<string>('');
   const [error, setError] = useState('');
+  const [draft, setDraft] = useState<GenerationDraft | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [mood, setMood] = useState<MoodId>('random');
   const didRunRef = useRef(false);
 
   const runGenerate = async (force = false) => {
@@ -44,10 +55,10 @@ export default function GeneratePage() {
     setError('');
 
     // 2. Load Draft Data using ID
-    const draft = loadDraft(draftId);
+    const activeDraft = draft ?? loadDraft(draftId);
     const blob = await loadImageBlob('input', draftId);
 
-    if (!draft || !blob) {
+    if (!activeDraft || !blob) {
       setError('入力データが見つかりません。最初からやり直してください。');
       setState('error');
       return;
@@ -56,11 +67,11 @@ export default function GeneratePage() {
     const file = new File([blob], 'input.png', { type: blob.type || 'image/png' });
     const form = new FormData();
     form.append('file', file);
-    form.append('palette', JSON.stringify(draft.palette));
-    form.append('bgRemove', draft.bgRemove ? '1' : '0');
-    form.append('mood', draft.mood || 'random');
-    form.append('source', draft.source);
-    if (draft.priorityCode) form.append('priorityCode', draft.priorityCode);
+    form.append('palette', JSON.stringify(activeDraft.palette));
+    form.append('bgRemove', activeDraft.bgRemove ? '1' : '0');
+    form.append('mood', mood);
+    form.append('source', activeDraft.source);
+    if (activeDraft.priorityCode) form.append('priorityCode', activeDraft.priorityCode);
 
     const res = await fetch('/api/generate', {
       method: 'POST',
@@ -90,11 +101,41 @@ export default function GeneratePage() {
   useEffect(() => {
     if (didRunRef.current) return;
     didRunRef.current = true;
-    runGenerate().catch(() => {
+    const init = async () => {
+      const existingResult = loadResult(draftId);
+      if (existingResult) {
+        setResult(existingResult);
+        setState('done');
+        const url = `${window.location.origin}/ar/${existingResult.token}`;
+        QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
+        return;
+      }
+
+      const loadedDraft = loadDraft(draftId);
+      const blob = await loadImageBlob('input', draftId);
+      if (!loadedDraft || !blob) {
+        setError('入力データが見つかりません。最初からやり直してください。');
+        setState('error');
+        return;
+      }
+      setDraft(loadedDraft);
+      setMood((loadedDraft.mood as MoodId) || 'random');
+      setPreviewUrl(URL.createObjectURL(blob));
+      setState('ready');
+    };
+
+    init().catch(() => {
       setError('生成に失敗しました。');
       setState('error');
     });
   }, [draftId]);
+
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleDownload = async () => {
     if (!result) return;
@@ -115,6 +156,57 @@ export default function GeneratePage() {
           <h1 className="font-heading text-2xl">生成中…</h1>
           <div className="skeleton h-64 w-full" />
           <p className="text-ink/70">AIがゆるキャラを作成しています。</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (state === 'ready') {
+    return (
+      <main className="min-h-screen px-6 py-6 flex items-center justify-center">
+        <div className="card w-full max-w-md p-6 space-y-4">
+          <div className="space-y-2">
+            <h1 className="font-heading text-xl">仕上げを選ぶ</h1>
+            <p className="text-sm text-ink/70">
+              仕上げムードを選んでから生成します。
+            </p>
+          </div>
+          {previewUrl ? (
+            <div className="rounded-3xl bg-white p-3 shadow-soft">
+              <img
+                src={previewUrl}
+                alt="入力画像"
+                className="w-full max-h-[38vh] object-contain"
+              />
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
+              仕上げムード
+            </label>
+            <select
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-2 text-sm"
+              value={mood}
+              onChange={(event) => setMood(event.target.value as MoodId)}
+            >
+              {MOOD_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-ink/50">
+              おまかせは毎回ランダムで変化します。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button className="btn btn-primary" onClick={() => runGenerate(true)}>
+              生成する
+            </button>
+            <Link href="/" className="btn btn-ghost">
+              もどる
+            </Link>
+          </div>
         </div>
       </main>
     );
