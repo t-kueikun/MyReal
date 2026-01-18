@@ -109,12 +109,8 @@ export default function ARClient({ imageUrl, token }: Props) {
 
   if (quickLookOnly) {
     return (
-      <div className="space-y-6">
-        <div className="card p-6 space-y-4">
-          <h2 className="font-heading text-lg">AR撮影</h2>
-          <p className="text-sm text-ink/60">
-            「iPhone ARで開く」から配置して撮影してください。
-          </p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-full max-w-sm">
           <QuickLookButton imageUrl={imageUrl} />
         </div>
       </div>

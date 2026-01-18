@@ -264,7 +264,7 @@ export default function QuickLookButton({ imageUrl }: { imageUrl: string }) {
       <a
         rel="ar"
         href={usdzUrl || '#'}
-        className={`btn btn-accent ${busy || !usdzUrl ? 'opacity-60 pointer-events-none' : ''}`}
+        className={`btn btn-accent w-full py-4 text-lg ${busy || !usdzUrl ? 'opacity-60 pointer-events-none' : ''}`}
         onClick={(event) => {
           if (!usdzUrl) event.preventDefault();
         }}
