@@ -69,7 +69,7 @@ export default function DrawPageClient() {
 
             {/* Main Canvas Area - maximized */}
             <main className="flex-1 relative w-full h-full p-2 md:p-6 flex items-center justify-center bg-paper-2/50">
-                <div className="relative w-full h-full max-w-3xl max-h-[85vh] shadow-xl md:rounded-3xl overflow-hidden bg-white border border-white/60">
+                <div className="relative w-full max-w-3xl aspect-square max-h-[85vh] shadow-xl md:rounded-3xl overflow-hidden bg-white border border-white/60">
                     <DrawingCanvas ref={drawingRef} />
                 </div>
             </main>

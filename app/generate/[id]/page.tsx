@@ -30,6 +30,7 @@ export default function GeneratePage() {
   const [draft, setDraft] = useState<GenerationDraft | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [mood, setMood] = useState<MoodId>('random');
+  const [elapsed, setElapsed] = useState(0);
   const didRunRef = useRef(false);
 
   const runGenerate = async (force = false) => {
@@ -137,6 +138,19 @@ export default function GeneratePage() {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (state !== 'loading') {
+      setElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    setElapsed(0);
+    const id = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [state]);
+
   const handleDownload = async () => {
     if (!result) return;
     const res = await fetch(result.imageUrl);
@@ -150,12 +164,24 @@ export default function GeneratePage() {
   };
 
   if (state === 'loading') {
+    const progress = Math.min(90, Math.round((elapsed / 40) * 100));
     return (
       <main className="mx-auto max-w-5xl px-6 py-16 space-y-8">
         <div className="card p-8 space-y-6">
           <h1 className="font-heading text-2xl">生成中…</h1>
           <div className="skeleton h-64 w-full" />
-          <p className="text-ink/70">AIがゆるキャラを作成しています。</p>
+          <div className="space-y-3">
+            <div className="h-2 w-full rounded-full bg-ink/10 overflow-hidden">
+              <div
+                className="h-full bg-accent transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-ink/70">AIがゆるキャラを作成しています。</p>
+            <p className="text-xs text-ink/50">
+              目安: 20〜40秒 / 経過: {elapsed}秒
+            </p>
+          </div>
         </div>
       </main>
     );
@@ -218,6 +244,11 @@ export default function GeneratePage() {
         <div className="card p-8 space-y-4">
           <h1 className="font-heading text-2xl">生成に失敗しました</h1>
           <p className="text-ink/70">{error}</p>
+          <div className="text-xs text-ink/50 space-y-1">
+            <p>・通信が不安定な場合は少し待って再試行してください。</p>
+            <p>・混雑時は時間をおいて再試行すると通りやすいです。</p>
+            <p>・画像が大きい場合は描き直すと成功率が上がります。</p>
+          </div>
           <div className="flex flex-wrap gap-3">
             <button className="btn btn-primary" onClick={() => runGenerate(true)}>
               再試行
@@ -247,12 +278,20 @@ export default function GeneratePage() {
                 className="w-full rounded-3xl bg-white p-4 shadow-soft"
               />
             ) : null}
-            <div className="flex flex-wrap gap-3">
-              {result ? (
-                <Link href={`/ar/${result.token}`} className="btn btn-accent">
-                  撮影をはじめる
+            {result ? (
+              <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-4 space-y-2">
+                <p className="text-sm font-semibold text-ink/80">
+                  iPhoneはここからARを開く
+                </p>
+                <Link href={`/ar/${result.token}`} className="btn btn-accent w-full py-4 text-lg">
+                  iPhone ARで開く
                 </Link>
-              ) : null}
+                <p className="text-xs text-ink/50">
+                  AndroidはQRから開いてください。
+                </p>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-3">
               <button className="btn btn-ghost" onClick={handleDownload}>
                 保存
               </button>

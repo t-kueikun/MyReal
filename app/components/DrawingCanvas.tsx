@@ -185,7 +185,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            className="w-full h-full object-contain touch-none"
+            className="block w-full h-full touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={endDrawing}
