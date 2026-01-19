@@ -1,6 +1,7 @@
 import { env } from './config';
 import { logError } from './logger';
 import { buildPrompt } from './prompt';
+import { VariationOption } from './variation';
 import { MoodOption } from './mood';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
@@ -68,13 +69,14 @@ async function withBackoff<T>(fn: () => Promise<T>) {
 export async function generateWithOpenRouter(
   image: Buffer,
   palette: string[],
-  mood: MoodOption
+  mood: MoodOption,
+  variation: VariationOption
 ): Promise<Buffer> {
   if (!env.openRouterApiKey) {
     throw new Error('OpenRouter API key missing');
   }
 
-  const prompt = buildPrompt(palette, mood);
+  const prompt = buildPrompt(palette, mood, variation);
   const base64 = image.toString('base64');
   const headers: Record<string, string> = {
     Authorization: `Bearer ${env.openRouterApiKey}`,

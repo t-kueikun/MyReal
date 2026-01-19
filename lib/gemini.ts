@@ -1,6 +1,7 @@
 import { env } from './config';
 import { logError, logInfo } from './logger';
 import { buildPrompt } from './prompt';
+import { VariationOption } from './variation';
 import { MoodOption } from './mood';
 
 function normalizeModel(model: string) {
@@ -28,14 +29,15 @@ async function withBackoff<T>(fn: () => Promise<T>) {
 export async function generateWithGemini(
   image: Buffer,
   palette: string[],
-  mood: MoodOption
+  mood: MoodOption,
+  variation: VariationOption
 ): Promise<Buffer> {
   if (!env.geminiApiKey) {
     throw new Error('Gemini API key missing');
   }
 
   const base64 = image.toString('base64');
-  const prompt = buildPrompt(palette, mood);
+  const prompt = buildPrompt(palette, mood, variation);
   const modelName = normalizeModel(env.geminiModel);
   const useImageModel = isImageModel(env.geminiModel);
 

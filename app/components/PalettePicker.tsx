@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const PRESETS = [
   ['#f08f6f', '#f3c969', '#5a9bd8'],
@@ -16,6 +16,10 @@ export default function PalettePicker({
   onChange: (colors: string[]) => void;
 }) {
   const [colors, setColors] = useState(value);
+
+  useEffect(() => {
+    setColors(value);
+  }, [value]);
 
   const update = (next: string[]) => {
     setColors(next);

@@ -14,7 +14,9 @@ import {
   type SavedResult
 } from '../../../lib/draft';
 import { MOOD_OPTIONS, type MoodId } from '../../../lib/mood';
+import { VARIATION_OPTIONS, type VariationId } from '../../../lib/variation';
 import FeedbackForm from '../../components/FeedbackForm';
+import PalettePicker from '../../components/PalettePicker';
 
 type GenerateResult = SavedResult;
 
@@ -30,6 +32,8 @@ export default function GeneratePage() {
   const [draft, setDraft] = useState<GenerationDraft | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [mood, setMood] = useState<MoodId>('random');
+  const [palette, setPalette] = useState<string[]>(['#f08f6f', '#f3c969', '#5a9bd8']);
+  const [variation, setVariation] = useState<VariationId>('standard');
   const [elapsed, setElapsed] = useState(0);
   const didRunRef = useRef(false);
 
@@ -68,9 +72,10 @@ export default function GeneratePage() {
     const file = new File([blob], 'input.png', { type: blob.type || 'image/png' });
     const form = new FormData();
     form.append('file', file);
-    form.append('palette', JSON.stringify(activeDraft.palette));
+    form.append('palette', JSON.stringify(palette));
     form.append('bgRemove', activeDraft.bgRemove ? '1' : '0');
     form.append('mood', mood);
+    form.append('variation', variation);
     form.append('source', activeDraft.source);
     if (activeDraft.priorityCode) form.append('priorityCode', activeDraft.priorityCode);
 
@@ -121,6 +126,7 @@ export default function GeneratePage() {
       }
       setDraft(loadedDraft);
       setMood((loadedDraft.mood as MoodId) || 'random');
+      setPalette(loadedDraft.palette);
       setPreviewUrl(URL.createObjectURL(blob));
       setState('ready');
     };
@@ -206,24 +212,52 @@ export default function GeneratePage() {
               />
             </div>
           ) : null}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
-              仕上げムード
-            </label>
-            <select
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-2 text-sm"
-              value={mood}
-              onChange={(event) => setMood(event.target.value as MoodId)}
-            >
-              {MOOD_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-ink/50">
-              おまかせは毎回ランダムで変化します。
-            </p>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
+                色を指定
+              </label>
+              <PalettePicker value={palette} onChange={setPalette} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
+                仕上げムード
+              </label>
+              <select
+                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-2 text-sm"
+                value={mood}
+                onChange={(event) => setMood(event.target.value as MoodId)}
+              >
+                {MOOD_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-ink/50">
+                おまかせは毎回ランダムで変化します。
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
+                変化量
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {VARIATION_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`btn ${variation === option.id ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setVariation(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-ink/50">
+                「大きく」にすると似た絵でも変化が強くなります。
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
             <button className="btn btn-primary" onClick={() => runGenerate(true)}>

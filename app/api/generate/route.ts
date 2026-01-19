@@ -15,6 +15,7 @@ import { assertSameOrigin, getRequestIp } from '../../../lib/security';
 import { env } from '../../../lib/config';
 import { logError, logInfo } from '../../../lib/logger';
 import { resolveMood } from '../../../lib/mood';
+import { resolveVariation } from '../../../lib/variation';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -48,6 +49,9 @@ export async function POST(request: NextRequest) {
     const moodRaw = form.get('mood');
     const moodId = typeof moodRaw === 'string' ? moodRaw : 'random';
     const mood = resolveMood(moodId);
+    const variationRaw = form.get('variation');
+    const variationId = typeof variationRaw === 'string' ? variationRaw : 'standard';
+    const variation = resolveVariation(variationId);
     const source = form.get('source') === 'upload' ? 'upload' : 'draw';
     const priorityCode = String(form.get('priorityCode') || '');
 
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
       if (env.openRouterApiKey) {
         aiAttempted = true;
         try {
-          output = await generateWithOpenRouter(processed, palette, mood);
+          output = await generateWithOpenRouter(processed, palette, mood, variation);
           provider = 'openrouter';
         } catch (error) {
           logError('OpenRouter generation failed', { error: String(error) });
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
       if (!output && env.geminiApiKey) {
         aiAttempted = true;
         try {
-          output = await generateWithGemini(processed, palette, mood);
+          output = await generateWithGemini(processed, palette, mood, variation);
           provider = 'gemini';
         } catch (error) {
           logError('Gemini generation failed', { error: String(error) });
