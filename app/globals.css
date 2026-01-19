@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --paper-1: #f6f4f0;
-  --paper-2: #f1ece4;
-  --accent: #5a9bd8;
-  --accent-2: #f08f6f;
-  --font-body: system-ui;
+  --paper-1: #ffffff;
+  --paper-2: #fff9f0;
+  --accent: #FF4081;
+  --accent-2: #FFC107;
+  --font-body: system-ui, sans-serif;
+  --font-heading: var(--font-heading);
 }
 
 * {
@@ -16,10 +17,11 @@
 
 body {
   @apply bg-paper text-ink font-body;
+  background-color: var(--paper-1);
   background-image:
-    radial-gradient(circle at 20% 20%, rgba(90, 155, 216, 0.08), transparent 35%),
-    radial-gradient(circle at 80% 10%, rgba(240, 143, 111, 0.06), transparent 30%),
-    linear-gradient(120deg, var(--paper-1), var(--paper-2));
+    radial-gradient(circle at 10% 20%, rgba(255, 64, 129, 0.05), transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(255, 193, 7, 0.1), transparent 40%),
+    linear-gradient(180deg, var(--paper-1), var(--paper-2));
   min-height: 100vh;
 }
 
