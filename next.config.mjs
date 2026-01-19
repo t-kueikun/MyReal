@@ -1,3 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -5,6 +11,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   output: 'standalone',
+  outputFileTracingRoot: __dirname,
   webpack: (config, { isServer }) => {
     if (isServer) {
       if (Array.isArray(config.externals)) {
