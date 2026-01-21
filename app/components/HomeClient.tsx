@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import DrawingCanvas, { DrawingCanvasHandle } from './DrawingCanvas';
+import DrawingCanvas, { DrawingCanvasHandle, Tool } from './DrawingCanvas';
 import ImageUploader from './ImageUploader';
 import PalettePicker from './PalettePicker';
 import QueueStatus from './QueueStatus';
@@ -21,6 +21,7 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
 
   // State
   const [viewState, setViewState] = useState<ViewState>('landing');
+  const [tool, setTool] = useState<Tool>('pen');
   const [palette, setPalette] = useState(DEFAULT_PALETTE);
   const [bgRemove, setBgRemove] = useState(true);
   const [priorityCode, setPriorityCode] = useState('');
@@ -95,7 +96,7 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
   // -- Landing & Terms Views --
   if (viewState === 'landing') {
     return (
-      <div className="flex min-h-[80vh] flex-col items-center justify-center space-y-10 text-center animate-fadeIn">
+      <div className="flex h-screen w-full flex-col items-center justify-center space-y-10 bg-paper text-center animate-fadeIn overflow-hidden">
         <div className="space-y-4">
           <p className="text-lg font-bold uppercase tracking-[0.2em] text-accent-2">
             AI x AR Character Creator
@@ -131,122 +132,146 @@ export default function HomeClient({ eventMode }: { eventMode: boolean }) {
         <TermsModal onAgree={handleAgreeTerms} onCancel={handleCancelTerms} />
       )}
 
-      <div className="space-y-8 animate-fadeIn">
-        {/* Header (Simplified for App View) */}
-        <header className="flex items-center justify-between">
-          <div className="flex items-baseline gap-3">
-            <h1 className="font-heading text-3xl font-bold text-ink">MyReal</h1>
-            <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-bold text-accent">BETA</span>
-          </div>
-          <Link href="/scan" className="btn btn-ghost text-sm">
-            QR読取
-          </Link>
-        </header>
+      {/* Main App Layout - Full Screen No Scroll */}
+      <div className="flex h-screen w-full flex-col overflow-hidden bg-paper lg:flex-row animate-fadeIn">
 
-        <div className="grid gap-6 lg:grid-cols-[2.5fr,1fr]">
-          <section className="space-y-6">
-            <div className="card h-full min-h-[600px] p-6 border-2 border-dashed border-ink/5 bg-white/50 relative flex items-center justify-center">
+        {/* Left Column: Canvas Area (Flex Grow) */}
+        <main className="relative flex-1 flex flex-col min-h-0 bg-paper-1/50">
+          {/* Header Overlay */}
+          <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
+            <h1 className="font-heading text-2xl font-bold text-ink">MyReal</h1>
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">BETA</span>
+          </div>
+
+          <div className="absolute top-4 right-4 z-10 lg:hidden">
+            {/* Mobile Toggle or simple Link for now */}
+            <Link href="/scan" className="btn btn-ghost text-sm bg-white/80 backdrop-blur-sm">
+              QR読取
+            </Link>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
+            <div className="relative aspect-square w-full max-w-[85vh] lg:max-w-none lg:h-full lg:w-auto overflow-hidden rounded-3xl border-2 border-dashed border-ink/5 bg-white shadow-sm">
               <DrawingCanvas
                 ref={drawingRef}
+                tool={tool}
                 onDirty={() => setSource('draw')}
               />
             </div>
-          </section>
+          </div>
+        </main>
 
-          <aside className="space-y-6">
-            <QueueStatus />
-            <div className="card p-6 space-y-6 shadow-xl shadow-accent/5 ring-1 ring-black/5">
+        {/* Right Column: Sidebar (Fixed Width on Desktop) */}
+        <aside className="w-full flex-none overflow-y-auto border-t border-ink/5 bg-white p-6 shadow-xl lg:h-full lg:w-[400px] lg:border-l lg:border-t-0 lg:p-8 z-20">
+          <div className="flex h-full flex-col gap-8">
 
-              <div className="space-y-2">
-                <h2 className="font-heading text-lg font-bold text-ink">ツール & 設定</h2>
+            {/* 1. Drawing Tools */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-heading text-sm font-bold text-ink/50 uppercase tracking-wider">Drawing Tools</h2>
+                <Link href="/scan" className="hidden lg:inline-flex btn btn-ghost text-xs px-2 py-1 h-auto min-h-0">
+                  QR読取
+                </Link>
               </div>
-
-              {/* Section: Input Source / Category */}
-              <div className="space-y-4">
-                <label className="block text-sm font-bold text-ink/70">画像読み込み (背景透過推奨)</label>
-                <ImageUploader
-                  onSelect={(file) => {
-                    setUploadedFile(file);
-                    if (file) setSource('upload');
-                  }}
-                />
+              <div className="grid grid-cols-4 gap-3">
+                <button
+                  onClick={() => setTool('pen')}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-3 transition-all ${tool === 'pen' ? 'bg-ink text-white shadow-md scale-105' : 'bg-paper-2 text-ink/70 hover:bg-ink/10'}`}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                  <span className="text-[10px] font-bold">ペン</span>
+                </button>
+                <button
+                  onClick={() => setTool('eraser')}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-3 transition-all ${tool === 'eraser' ? 'bg-ink text-white shadow-md scale-105' : 'bg-paper-2 text-ink/70 hover:bg-ink/10'}`}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z" /><path d="M17 17L7 7" /></svg>
+                  <span className="text-[10px] font-bold">消しゴム</span>
+                </button>
+                <button
+                  onClick={() => drawingRef.current?.undo()}
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-paper-2 py-3 text-ink/70 transition-all hover:bg-ink/10 active:scale-95"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" /></svg>
+                  <span className="text-[10px] font-bold">戻す</span>
+                </button>
+                <button
+                  onClick={() => drawingRef.current?.clear()}
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-red-50 py-3 text-red-500 transition-all hover:bg-red-100 active:scale-95"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                  <span className="text-[10px] font-bold">クリア</span>
+                </button>
               </div>
+            </section>
 
-              <div className="border-t border-ink/5 pt-4 space-y-4">
-                <label className="block text-sm font-bold text-ink/70">カラーパレット</label>
+            {/* 2. Color Palette */}
+            <section className="space-y-3 flex-1 min-h-0">
+              <h2 className="font-heading text-sm font-bold text-ink/50 uppercase tracking-wider">Palette</h2>
+              <div className="rounded-3xl bg-paper-1 border border-ink/5 p-4 overflow-y-auto max-h-[300px] lg:max-h-none">
                 <PalettePicker value={palette} onChange={setPalette} />
               </div>
+            </section>
 
-              <div className="space-y-4 rounded-xl bg-paper-2 p-4">
-                <label className="flex items-center gap-3 text-sm font-medium text-ink/80 cursor-pointer">
-                  <div className="relative flex items-center">
+            {/* 3. Settings & Actions */}
+            <div className="mt-auto space-y-4 pt-4 border-t border-ink/5">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Image Upload Compact */}
+                <div className="col-span-1">
+                  <ImageUploader
+                    onSelect={(file) => {
+                      setUploadedFile(file);
+                      if (file) setSource('upload');
+                    }}
+                  />
+                </div>
+
+                {/* Bg Remove Toggle Compact */}
+                <div className="col-span-1 flex items-center justify-center rounded-xl bg-paper-2 border border-ink/5 px-3">
+                  <label className="flex items-center gap-2 text-xs font-bold text-ink/70 cursor-pointer w-full justify-center">
                     <input
                       type="checkbox"
-                      className="peer h-5 w-5 appearance-none rounded-md border-2 border-ink/20 bg-white transition-colors checked:border-accent checked:bg-accent focus:ring-2 focus:ring-accent/30"
+                      className="h-4 w-4 rounded border-ink/20 text-accent focus:ring-accent"
                       checked={bgRemove}
                       onChange={(event) => setBgRemove(event.target.checked)}
                     />
-                    <svg
-                      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M10 3L4.5 8.5L2 6"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                  背景除去 (推奨)
-                </label>
+                    背景除去
+                  </label>
+                </div>
               </div>
 
               {eventMode ? (
-                <label className="flex flex-col gap-2 text-sm text-ink/70">
-                  <span className="font-bold">優先コード (係員用)</span>
-                  <input
-                    type="password"
-                    value={priorityCode}
-                    onChange={(event) => setPriorityCode(event.target.value)}
-                    className="rounded-xl border border-ink/10 px-3 py-2 focus:ring-2 focus:ring-accent/30"
-                    placeholder="コードを入力"
-                  />
-                </label>
+                <input
+                  type="password"
+                  value={priorityCode}
+                  onChange={(event) => setPriorityCode(event.target.value)}
+                  className="w-full rounded-xl border border-ink/10 bg-paper-1 px-4 py-3 text-sm focus:ring-2 focus:ring-accent/30"
+                  placeholder="優先コード (係員用)"
+                />
               ) : null}
 
-              {/* Hidden implicit consent checkbox, or kept as visual confirmation */}
-              <label className="flex items-start gap-3 text-xs text-ink/50">
-                <div className="pt-0.5">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><path d="M20 6L9 17l-5-5" /></svg>
-                </div>
-                <span>
-                  利用規約に同意済み (画像は48時間後に削除されます)
-                </span>
-              </label>
-
+              {/* Error Message */}
               {error ? (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 border border-red-100">
+                <div className="rounded-xl bg-red-50 p-3 text-xs font-bold text-red-600 border border-red-100 text-center animate-shake">
                   {error}
                 </div>
               ) : null}
 
               <button
                 type="button"
-                className="btn btn-primary w-full py-4 text-lg shadow-xl shadow-accent/20 transition-transform active:scale-[0.98]"
+                className="group relative w-full overflow-hidden rounded-full bg-ink p-4 text-white shadow-xl transition-transform active:scale-[0.98]"
                 disabled={busy}
                 onClick={handleGenerate}
               >
-                {busy ? '生成中...' : '生成する'}
+                <div className="relative z-10 flex items-center justify-center gap-2 font-bold text-lg">
+                  <span>{busy ? '生成中...' : '生成する'}</span>
+                  {!busy && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></svg>}
+                </div>
+                <div className="absolute inset-0 -z-10 bg-gradient-to-r from-accent to-accent-2 opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
             </div>
-          </aside>
-        </div>
+          </div>
+        </aside>
       </div>
     </>
   );
