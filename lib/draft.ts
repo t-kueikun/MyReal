@@ -36,7 +36,8 @@ export type SavedResult = {
   token: string;
   imageUrl: string;
   expiresAt: string;
-  provider: 'gemini' | 'openrouter' | 'fallback';
+  provider: 'stable-diffusion' | 'gemini' | 'openrouter' | 'fallback';
+  aiFailed?: boolean;
   geminiFailed?: boolean;
 };
 

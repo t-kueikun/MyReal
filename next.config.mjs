@@ -28,6 +28,8 @@ const nextConfig = {
     return config;
   },
   async headers() {
+    const devScriptSrc = isDev ? " https://vercel.live" : '';
+    const devConnectSrc = isDev ? " https://vercel.live wss://vercel.live" : '';
     return [
       {
         source: '/(.*)',
@@ -44,7 +46,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              `default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: data:; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}; frame-ancestors 'none'`
+              `default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: data:${devConnectSrc}; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${devScriptSrc}; frame-ancestors 'none'`
           }
         ]
       }

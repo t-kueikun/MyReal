@@ -341,12 +341,16 @@ export default function GeneratePage() {
             {result ? (
               <p className="text-xs text-ink/50">
                 生成エンジン:{' '}
-                {result.provider === 'gemini'
+                {result.provider === 'stable-diffusion'
+                  ? 'Stable Diffusion 3.5 (Stability AI)'
+                  : result.provider === 'gemini'
                   ? 'Gemini'
                   : result.provider === 'openrouter'
                     ? 'OpenRouter (Gemini)'
                     : 'ローカル簡易'}
-                {result.geminiFailed ? ' (Gemini失敗時フォールバック)' : ''}
+                {result.aiFailed ?? result.geminiFailed
+                  ? ' (AI失敗時フォールバック)'
+                  : ''}
               </p>
             ) : null}
           </div>

@@ -4,6 +4,7 @@ import { validateImage, resizeToLimit, removeNearWhiteBackground } from '../../.
 import { removeBackground } from '../../../lib/backgroundRemove';
 import { generateWithGemini } from '../../../lib/gemini';
 import { generateWithOpenRouter } from '../../../lib/openrouter';
+import { generateWithStableDiffusion } from '../../../lib/stableDiffusion';
 import { stylizeFallback } from '../../../lib/stylize';
 import { createToken } from '../../../lib/token';
 import { saveMeta } from '../../../lib/metadata';
@@ -42,9 +43,20 @@ export async function POST(request: NextRequest) {
       );
     }
     const paletteRaw = form.get('palette');
-    const palette = paletteSchema.parse(
-      paletteRaw ? JSON.parse(String(paletteRaw)) : []
-    );
+    let paletteValue: unknown = [];
+    if (typeof paletteRaw === 'string') {
+      try {
+        paletteValue = JSON.parse(paletteRaw);
+      } catch {
+        return NextResponse.json(
+          { message: 'パレット形式が不正です。' },
+          { status: 400 }
+        );
+      }
+    } else if (paletteRaw != null) {
+      return NextResponse.json({ message: 'パレット形式が不正です。' }, { status: 400 });
+    }
+    const palette = paletteSchema.parse(paletteValue);
     const bgRemove = form.get('bgRemove') === '1';
     const moodRaw = form.get('mood');
     const moodId = typeof moodRaw === 'string' ? moodRaw : 'random';
@@ -81,12 +93,23 @@ export async function POST(request: NextRequest) {
       }
 
       let output: Buffer | undefined;
-      let provider: 'gemini' | 'openrouter' | 'fallback' = 'fallback';
+      let provider: 'stable-diffusion' | 'gemini' | 'openrouter' | 'fallback' =
+        'fallback';
       let aiAttempted = false;
       const fallbackInput = bgRemove
         ? processed
         : await removeNearWhiteBackground(processed);
-      if (env.openRouterApiKey) {
+      if (env.stabilityApiKey) {
+        aiAttempted = true;
+        try {
+          output = await generateWithStableDiffusion(processed, palette, mood, variation);
+          provider = 'stable-diffusion';
+        } catch (error) {
+          logError('Stable Diffusion generation failed', { error: String(error) });
+        }
+      }
+
+      if (!output && env.openRouterApiKey) {
         aiAttempted = true;
         try {
           output = await generateWithOpenRouter(processed, palette, mood, variation);
@@ -111,7 +134,7 @@ export async function POST(request: NextRequest) {
         provider = 'fallback';
       }
 
-      const geminiFailed = aiAttempted && provider === 'fallback';
+      const aiFailed = aiAttempted && provider === 'fallback';
 
       // Always attempt to remove background from the generated result
       // because we explicitly prompted for a white background.
@@ -143,7 +166,7 @@ export async function POST(request: NextRequest) {
         source
       });
       const imageUrl = await getImageUrl(saved.key, env.tokenTtlHours * 3600);
-      return { token, imageUrl, expiresAt, provider, geminiFailed };
+      return { token, imageUrl, expiresAt, provider, aiFailed, geminiFailed: aiFailed };
     };
 
     const result = bypass ? await task() : await queueTask(task, 1);
@@ -152,8 +175,14 @@ export async function POST(request: NextRequest) {
     logInfo('generation completed', {
       durationMs: Date.now() - start,
       provider: result.provider,
-      geminiFailed: result.geminiFailed,
-      model: result.provider === 'openrouter' ? env.openRouterModel : env.geminiModel,
+      aiFailed: result.aiFailed,
+      model:
+        result.provider === 'stable-diffusion'
+          ? env.stableDiffusionModel
+          : result.provider === 'openrouter'
+            ? env.openRouterModel
+            : env.geminiModel,
+      hasStabilityKey: Boolean(env.stabilityApiKey),
       hasGeminiKey: Boolean(env.geminiApiKey),
       hasOpenRouterKey: Boolean(env.openRouterApiKey)
     });

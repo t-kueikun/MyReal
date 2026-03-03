@@ -31,6 +31,11 @@ const envLocal = readEnvLocal();
 
 const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().optional(),
+  STABILITY_API_KEY: z.string().optional(),
+  STABLE_DIFFUSION_MODEL: z.string().optional(),
+  STABLE_DIFFUSION_STRENGTH: z.string().optional(),
+  STABLE_DIFFUSION_CFG_SCALE: z.string().optional(),
+  STABLE_DIFFUSION_STYLE_PRESET: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
@@ -70,6 +75,35 @@ const raw = parsed.success ? parsed.data : {};
 
 export const env = {
   appUrl: raw.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '',
+  stabilityApiKey: raw.STABILITY_API_KEY || envLocal.STABILITY_API_KEY || '',
+  stableDiffusionModel:
+    raw.STABLE_DIFFUSION_MODEL || envLocal.STABLE_DIFFUSION_MODEL || 'sd3.5-large',
+  stableDiffusionStrength: Math.min(
+    1,
+    Math.max(
+      0,
+      Number(
+        raw.STABLE_DIFFUSION_STRENGTH ||
+          envLocal.STABLE_DIFFUSION_STRENGTH ||
+          '0.92'
+      )
+    )
+  ),
+  stableDiffusionCfgScale: Math.min(
+    10,
+    Math.max(
+      1,
+      Number(
+        raw.STABLE_DIFFUSION_CFG_SCALE ||
+          envLocal.STABLE_DIFFUSION_CFG_SCALE ||
+          '6'
+      )
+    )
+  ),
+  stableDiffusionStylePreset:
+    raw.STABLE_DIFFUSION_STYLE_PRESET ||
+    envLocal.STABLE_DIFFUSION_STYLE_PRESET ||
+    '3d-model',
   geminiApiKey: raw.GEMINI_API_KEY || envLocal.GEMINI_API_KEY || '',
   geminiModel:
     raw.GEMINI_MODEL ||

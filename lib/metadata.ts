@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { env } from './config';
 import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
+import { logWarn } from './logger';
 
 export type TokenMeta = {
   token: string;
@@ -65,25 +66,43 @@ async function upstash(command: string[]) {
 
 export async function saveMeta(meta: TokenMeta) {
   if (isSupabaseEnabled()) {
-    const supabase = getSupabaseAdmin();
-    const { error } = await supabase.from(META_TABLE).upsert(
-      {
-        token: meta.token,
-        image_key: meta.imageKey,
-        created_at: meta.createdAt,
-        expires_at: meta.expiresAt,
-        palette: meta.palette,
-        source: meta.source
-      },
-      { onConflict: 'token' }
-    );
-    if (error) throw new Error(`Supabase meta save failed: ${error.message}`);
-    return;
+    try {
+      const supabase = getSupabaseAdmin();
+      const { error } = await supabase.from(META_TABLE).upsert(
+        {
+          token: meta.token,
+          image_key: meta.imageKey,
+          created_at: meta.createdAt,
+          expires_at: meta.expiresAt,
+          palette: meta.palette,
+          source: meta.source
+        },
+        { onConflict: 'token' }
+      );
+      if (error) throw new Error(`Supabase meta save failed: ${error.message}`);
+      return;
+    } catch (error) {
+      logWarn('Supabase meta save failed, falling back to local metadata', {
+        error: String(error)
+      });
+    }
   }
   if (env.upstashUrl && env.upstashToken) {
-    const ttl = Math.max(60, env.tokenTtlHours * 3600);
-    await upstash(['SET', `myreal:${meta.token}`, JSON.stringify(meta), 'EX', String(ttl)]);
-    return;
+    try {
+      const ttl = Math.max(60, env.tokenTtlHours * 3600);
+      await upstash([
+        'SET',
+        `myreal:${meta.token}`,
+        JSON.stringify(meta),
+        'EX',
+        String(ttl)
+      ]);
+      return;
+    } catch (error) {
+      logWarn('Upstash meta save failed, falling back to local metadata', {
+        error: String(error)
+      });
+    }
   }
   const local = await loadLocal();
   local[meta.token] = meta;
@@ -92,19 +111,31 @@ export async function saveMeta(meta: TokenMeta) {
 
 export async function getMeta(token: string) {
   if (isSupabaseEnabled()) {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from(META_TABLE)
-      .select('*')
-      .eq('token', token)
-      .maybeSingle();
-    if (error || !data) return null;
-    return mapRow(data);
+    try {
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from(META_TABLE)
+        .select('*')
+        .eq('token', token)
+        .maybeSingle();
+      if (error || !data) return null;
+      return mapRow(data);
+    } catch (error) {
+      logWarn('Supabase meta read failed, trying local metadata', {
+        error: String(error)
+      });
+    }
   }
   if (env.upstashUrl && env.upstashToken) {
-    const result = await upstash(['GET', `myreal:${token}`]);
-    if (!result) return null;
-    return JSON.parse(result as string) as TokenMeta;
+    try {
+      const result = await upstash(['GET', `myreal:${token}`]);
+      if (!result) return null;
+      return JSON.parse(result as string) as TokenMeta;
+    } catch (error) {
+      logWarn('Upstash meta read failed, trying local metadata', {
+        error: String(error)
+      });
+    }
   }
   const local = await loadLocal();
   return local[token] ?? null;
@@ -112,13 +143,25 @@ export async function getMeta(token: string) {
 
 export async function deleteMeta(token: string) {
   if (isSupabaseEnabled()) {
-    const supabase = getSupabaseAdmin();
-    await supabase.from(META_TABLE).delete().eq('token', token);
-    return;
+    try {
+      const supabase = getSupabaseAdmin();
+      await supabase.from(META_TABLE).delete().eq('token', token);
+      return;
+    } catch (error) {
+      logWarn('Supabase meta delete failed, falling back to local metadata', {
+        error: String(error)
+      });
+    }
   }
   if (env.upstashUrl && env.upstashToken) {
-    await upstash(['DEL', `myreal:${token}`]);
-    return;
+    try {
+      await upstash(['DEL', `myreal:${token}`]);
+      return;
+    } catch (error) {
+      logWarn('Upstash meta delete failed, falling back to local metadata', {
+        error: String(error)
+      });
+    }
   }
   const local = await loadLocal();
   delete local[token];
@@ -127,12 +170,18 @@ export async function deleteMeta(token: string) {
 
 export async function listExpired(now = Date.now()) {
   if (isSupabaseEnabled()) {
-    const supabase = getSupabaseAdmin();
-    const { data } = await supabase
-      .from(META_TABLE)
-      .select('*')
-      .lt('expires_at', new Date(now).toISOString());
-    return (data ?? []).map(mapRow);
+    try {
+      const supabase = getSupabaseAdmin();
+      const { data } = await supabase
+        .from(META_TABLE)
+        .select('*')
+        .lt('expires_at', new Date(now).toISOString());
+      return (data ?? []).map(mapRow);
+    } catch (error) {
+      logWarn('Supabase expired-meta listing failed, falling back to local', {
+        error: String(error)
+      });
+    }
   }
   if (env.upstashUrl && env.upstashToken) {
     return [] as TokenMeta[];
