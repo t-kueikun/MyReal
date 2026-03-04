@@ -5,8 +5,8 @@ import { logWarn } from './logger';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const METRICS_PATH = path.join(DATA_DIR, 'metrics.json');
-const RUNS_TABLE = 'myreal_runs';
-const FEEDBACK_TABLE = 'myreal_feedback';
+const RUNS_TABLE = 'areal_runs';
+const FEEDBACK_TABLE = 'areal_feedback';
 
 export type Metrics = {
   generated: number;
@@ -84,11 +84,11 @@ export async function getMetrics() {
       const feedbackCount = feedback?.length ?? 0;
       const feedbackAvg = feedbackCount
         ? Number(
-            (
-              feedback!.reduce((sum, row) => sum + Number(row.score || 0), 0) /
-              feedbackCount
-            ).toFixed(2)
-          )
+          (
+            feedback!.reduce((sum, row) => sum + Number(row.score || 0), 0) /
+            feedbackCount
+          ).toFixed(2)
+        )
         : 0;
       return {
         generated,

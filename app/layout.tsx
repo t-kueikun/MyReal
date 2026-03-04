@@ -12,7 +12,7 @@ const heading = Zen_Kaku_Gothic_New({
 });
 
 export const metadata: Metadata = {
-  title: 'MyReal – AI×ARで自分だけのゆるキャラ生成＆撮影',
+  title: 'AReal – AI×ARで自分だけのゆるキャラ生成＆撮影',
   description:
     '30–60秒で描いた線画からAIがゆるキャラ化。QRで受け取り、会場でWebAR撮影。',
   manifest: '/manifest.json'

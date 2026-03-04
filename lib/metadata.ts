@@ -17,7 +17,7 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const META_PATH = path.join(DATA_DIR, 'meta.json');
 let localCache: Record<string, TokenMeta> | null = null;
 let writing = Promise.resolve();
-const META_TABLE = 'myreal_meta';
+const META_TABLE = 'areal_meta';
 
 function mapRow(row: any): TokenMeta {
   return {
@@ -92,7 +92,7 @@ export async function saveMeta(meta: TokenMeta) {
       const ttl = Math.max(60, env.tokenTtlHours * 3600);
       await upstash([
         'SET',
-        `myreal:${meta.token}`,
+        `areal:${meta.token}`,
         JSON.stringify(meta),
         'EX',
         String(ttl)
@@ -128,7 +128,7 @@ export async function getMeta(token: string) {
   }
   if (env.upstashUrl && env.upstashToken) {
     try {
-      const result = await upstash(['GET', `myreal:${token}`]);
+      const result = await upstash(['GET', `areal:${token}`]);
       if (!result) return null;
       return JSON.parse(result as string) as TokenMeta;
     } catch (error) {
@@ -155,7 +155,7 @@ export async function deleteMeta(token: string) {
   }
   if (env.upstashUrl && env.upstashToken) {
     try {
-      await upstash(['DEL', `myreal:${token}`]);
+      await upstash(['DEL', `areal:${token}`]);
       return;
     } catch (error) {
       logWarn('Upstash meta delete failed, falling back to local metadata', {

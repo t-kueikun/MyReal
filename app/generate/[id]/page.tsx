@@ -20,7 +20,7 @@ import PalettePicker from '../../components/PalettePicker';
 
 type GenerateResult = SavedResult;
 
-const AUTO_KEY = 'myreal:auto-generate';
+const AUTO_KEY = 'areal:auto-generate';
 
 export default function GeneratePage() {
   const params = useParams();
@@ -164,7 +164,7 @@ export default function GeneratePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'myreal.png';
+    a.download = 'areal.png';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -344,10 +344,10 @@ export default function GeneratePage() {
                 {result.provider === 'stable-diffusion'
                   ? 'Stable Diffusion 3.5 (Stability AI)'
                   : result.provider === 'gemini'
-                  ? 'Gemini'
-                  : result.provider === 'openrouter'
-                    ? 'OpenRouter (Gemini)'
-                    : 'ローカル簡易'}
+                    ? 'Gemini'
+                    : result.provider === 'openrouter'
+                      ? 'OpenRouter (Gemini)'
+                      : 'ローカル簡易'}
                 {result.aiFailed ?? result.geminiFailed
                   ? ' (AI失敗時フォールバック)'
                   : ''}

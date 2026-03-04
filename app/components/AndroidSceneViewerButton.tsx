@@ -135,7 +135,7 @@ export default function AndroidSceneViewerButton({ imageUrl }: { imageUrl: strin
         buildGLB(imageUrl)
             .then(async (glb) => {
                 if (!active) return;
-                const file = new File([glb], 'myreal.glb', {
+                const file = new File([glb], 'areal.glb', {
                     type: 'model/gltf-binary'
                 });
                 const form = new FormData();

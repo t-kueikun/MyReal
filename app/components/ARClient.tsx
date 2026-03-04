@@ -320,7 +320,7 @@ async function downloadImage(dataUrl: string) {
     try {
       if (window.showSaveFilePicker) {
         const picker = await window.showSaveFilePicker({
-          suggestedName: 'myreal-ar.png',
+          suggestedName: 'areal-ar.png',
           types: [
             {
               description: 'PNG Image',
@@ -340,7 +340,7 @@ async function downloadImage(dataUrl: string) {
   }
   const link = document.createElement('a');
   link.href = dataUrl;
-  link.download = 'myreal-ar.png';
+  link.download = 'areal-ar.png';
   link.click();
 }
 

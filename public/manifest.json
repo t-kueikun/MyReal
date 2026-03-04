@@ -1,6 +1,6 @@
 {
-  "name": "MyReal",
-  "short_name": "MyReal",
+  "name": "AReal",
+  "short_name": "AReal",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6f4f0",

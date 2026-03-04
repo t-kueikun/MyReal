@@ -8,7 +8,7 @@ export type GenerationDraft = {
   source: 'draw' | 'upload';
 };
 
-const DRAFT_KEY = 'myreal:draft';
+const DRAFT_KEY = 'areal:draft';
 
 export function saveDraft(draft: GenerationDraft, draftId?: string) {
   const key = draftId ? `${DRAFT_KEY}:${draftId}` : DRAFT_KEY;

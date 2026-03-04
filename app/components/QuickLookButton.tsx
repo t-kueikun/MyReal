@@ -221,7 +221,7 @@ export default function QuickLookButton({ imageUrl }: { imageUrl: string }) {
     buildUsdZ(imageUrl)
       .then(async (usdz) => {
         if (!active) return;
-        const file = new File([usdz], 'myreal.usdz', {
+        const file = new File([usdz], 'areal.usdz', {
           type: 'model/vnd.usdz+zip'
         });
         const form = new FormData();

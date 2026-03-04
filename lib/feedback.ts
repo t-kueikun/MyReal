@@ -13,7 +13,7 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const FEEDBACK_PATH = path.join(DATA_DIR, 'feedback.json');
 let cache: FeedbackEntry[] | null = null;
 let writing = Promise.resolve();
-const FEEDBACK_TABLE = 'myreal_feedback';
+const FEEDBACK_TABLE = 'areal_feedback';
 
 async function loadLocal() {
   if (cache) return cache;

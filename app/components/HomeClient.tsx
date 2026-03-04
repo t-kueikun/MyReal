@@ -8,7 +8,7 @@ export default function HomeClient({ eventMode }: { eventMode?: boolean }) {
   return (
     <div className="flex min-h-[70vh] items-center justify-center">
       <section className="card w-full max-w-lg p-10 md:p-14 text-center space-y-8 bg-gradient-to-br from-white to-paper-1 shadow-soft-xl border-white">
-        <h1 className="font-heading text-4xl md:text-5xl text-ink">MyReal</h1>
+        <h1 className="font-heading text-4xl md:text-5xl text-ink">AReal</h1>
         <div className="flex items-center justify-center">
           <Link
             href="/draw"

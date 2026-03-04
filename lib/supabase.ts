@@ -20,7 +20,7 @@ export function getSupabaseAdmin() {
       },
       global: {
         headers: {
-          'X-Client-Info': 'myreal-server'
+          'X-Client-Info': 'areal-server'
         }
       }
     });

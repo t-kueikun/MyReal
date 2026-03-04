@@ -84,8 +84,8 @@ export const env = {
       0,
       Number(
         raw.STABLE_DIFFUSION_STRENGTH ||
-          envLocal.STABLE_DIFFUSION_STRENGTH ||
-          '0.92'
+        envLocal.STABLE_DIFFUSION_STRENGTH ||
+        '0.92'
       )
     )
   ),
@@ -95,8 +95,8 @@ export const env = {
       1,
       Number(
         raw.STABLE_DIFFUSION_CFG_SCALE ||
-          envLocal.STABLE_DIFFUSION_CFG_SCALE ||
-          '6'
+        envLocal.STABLE_DIFFUSION_CFG_SCALE ||
+        '6'
       )
     )
   ),
@@ -124,7 +124,7 @@ export const env = {
   supabaseUrl: raw.SUPABASE_URL || envLocal.SUPABASE_URL || '',
   supabaseServiceRoleKey:
     raw.SUPABASE_SERVICE_ROLE_KEY || envLocal.SUPABASE_SERVICE_ROLE_KEY || '',
-  supabaseBucket: raw.SUPABASE_BUCKET || envLocal.SUPABASE_BUCKET || 'myreal',
+  supabaseBucket: raw.SUPABASE_BUCKET || envLocal.SUPABASE_BUCKET || 'areal',
   s3Endpoint: raw.S3_ENDPOINT || envLocal.S3_ENDPOINT || '',
   s3Region: raw.S3_REGION || envLocal.S3_REGION || 'auto',
   s3Bucket: raw.S3_BUCKET || envLocal.S3_BUCKET || '',

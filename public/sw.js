@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myreal-v1';
+const CACHE_NAME = 'areal-v1';
 const OFFLINE_URL = '/offline';
 
 self.addEventListener('install', (event) => {

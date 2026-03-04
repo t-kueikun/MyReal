@@ -7,7 +7,7 @@ dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const bucket = process.env.SUPABASE_BUCKET || 'myreal';
+const bucket = process.env.SUPABASE_BUCKET || 'areal';
 
 console.log('Testing Supabase Connection...');
 console.log('URL:', url);

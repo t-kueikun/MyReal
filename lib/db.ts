@@ -2,7 +2,7 @@
 
 import { openDB } from 'idb';
 
-const DB_NAME = 'myreal';
+const DB_NAME = 'areal';
 const DB_VERSION = 2;
 
 export async function getDb() {

@@ -25,12 +25,12 @@ function buildStableDiffusionPrompt(
   variation: VariationOption
 ) {
   const moodPromptById: Record<string, string> = {
-    pastel: 'pastel tones, soft shading, fluffy and gentle texture',
-    vivid: 'vivid colors, pop style, slightly strong contrast',
-    retro: 'muted retro palette, slightly grainy texture',
-    clay: 'matte clay-like texture with subtle, soft shadows',
-    paper: 'paper illustration texture with very light grain',
-    neon: 'neon cyber style with strong color edges'
+    pastel: 'soft pastel colors, gentle plush-toy feel with light shading',
+    vivid: 'bright vivid colors, pop and energetic feel with soft volume',
+    retro: 'muted retro colors, vintage kawaii feel with gentle shading',
+    clay: 'matte coloring, clay-like simplicity with subtle soft shadows',
+    paper: 'clean paper-like illustration style with minimal soft shading',
+    neon: 'bright neon colors with bold outlines and soft glow'
   };
 
   const variationPromptById: Record<string, string> = {
@@ -48,10 +48,12 @@ function buildStableDiffusionPrompt(
     variationPromptById[variation.id] || variationPromptById.standard;
 
   return [
-    'Create one clean, high-quality cute Japanese mascot character from the input image.',
-    'Keep only the character concept and main silhouette. Ignore all construction marks.',
-    'Simple shapes, warm and friendly style, polished finish.',
-    '3D CGI-like volume with soft shading and smooth edges.',
+    'Create one cute mascot character in a kawaii style like BT21 or LINE Friends characters.',
+    'Make it look like a cute animal, ghost, or creature.',
+    'Keep the character concept and main silhouette from the input image. Ignore all construction marks.',
+    'Simple rounded shapes, minimal details, chunky adorable proportions.',
+    'Soft 3D plush-toy volume with gentle shading and highlights. Soft rounded outlines, not too thick or harsh.',
+    'Warm smiley expression with pink cheeks. Can vary with sleeping face, waving pose, etc.',
     'Background must be pure white (#FFFFFF) with no shadows or patterns.',
     'Do not include any guide lines, dotted lines, triangles, circles, measurements, arrows, text, or overlays.',
     `Use this color palette as the base: ${palette.join(', ')}.`,
