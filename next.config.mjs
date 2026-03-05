@@ -34,6 +34,7 @@ const nextConfig = {
     const vercelLiveConnectSrc = allowVercelLive
       ? " https://vercel.live wss://vercel.live"
       : '';
+    const vercelLiveFrameSrc = allowVercelLive ? " https://vercel.live" : '';
     return [
       {
         source: '/(.*)',
@@ -50,7 +51,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              `default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: data:${vercelLiveConnectSrc}; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${vercelLiveScriptSrc}; frame-ancestors 'none'`
+              `default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: data:${vercelLiveConnectSrc}; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${vercelLiveScriptSrc}; frame-src 'self'${vercelLiveFrameSrc}; frame-ancestors 'none'`
           }
         ]
       }
