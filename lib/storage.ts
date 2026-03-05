@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { env } from './config';
+import { DATA_DIR } from './dataDir';
 import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
 import { logWarn } from './logger';
 import {
@@ -11,7 +12,6 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_DIR = path.join(DATA_DIR, 'storage');
 
 function s3Client() {
