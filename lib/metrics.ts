@@ -1,9 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { DATA_DIR } from './dataDir';
 import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
 import { logWarn } from './logger';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
 const METRICS_PATH = path.join(DATA_DIR, 'metrics.json');
 const RUNS_TABLE = 'areal_runs';
 const FEEDBACK_TABLE = 'areal_feedback';

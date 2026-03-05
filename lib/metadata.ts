@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { env } from './config';
+import { DATA_DIR } from './dataDir';
 import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
 import { logWarn } from './logger';
 
@@ -13,7 +14,6 @@ export type TokenMeta = {
   source: 'draw' | 'upload';
 };
 
-const DATA_DIR = path.join(process.cwd(), 'data');
 const META_PATH = path.join(DATA_DIR, 'meta.json');
 let localCache: Record<string, TokenMeta> | null = null;
 let writing = Promise.resolve();
