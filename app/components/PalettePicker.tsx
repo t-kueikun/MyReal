@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from 'react';
 
-const PRESETS = [
-  ['#f08f6f', '#f3c969', '#5a9bd8'],
-  ['#f7b7a3', '#ffd7a8', '#89b8d8'],
-  ['#f28f8f', '#f6d06a', '#7bc1b0']
+const PRESETS: { name: string; colors: string[] }[] = [
+  { name: '🍑 ピーチ', colors: ['#f8a4b8', '#ffd1a9', '#ffe8cc'] },
+  { name: '🌊 オーシャン', colors: ['#5b9bd5', '#7ec8e3', '#c8e6f5'] },
+  { name: '🍀 フォレスト', colors: ['#6db889', '#a8d5a2', '#f2e8c9'] },
+  { name: '🍋 レモン', colors: ['#ffe066', '#ffb347', '#ff6b6b'] },
+  { name: '🫐 ベリー', colors: ['#b07cc6', '#e88fb4', '#fccde2'] },
+  { name: '🧊 アイス', colors: ['#a8d8ea', '#cbaacb', '#ffffba'] },
+  { name: '🍫 チョコ', colors: ['#8b6f47', '#d4a574', '#f5e6d0'] },
+  { name: '🌸 さくら', colors: ['#fbb5c0', '#f9e4e4', '#d4eaf7'] },
+  { name: '🔥 サンセット', colors: ['#ff6b6b', '#ff9a56', '#ffd93d'] },
+  { name: '🌙 ミッドナイト', colors: ['#2d3561', '#6b5b95', '#b8a9c9'] },
 ];
 
 export default function PalettePicker({
@@ -46,23 +53,23 @@ export default function PalettePicker({
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        {PRESETS.map((preset, index) => (
+        {PRESETS.map((preset) => (
           <button
-            key={index}
+            key={preset.name}
             type="button"
-            onClick={() => update(preset)}
-            className="btn btn-ghost"
+            onClick={() => update(preset.colors)}
+            className="btn btn-ghost text-xs"
           >
-            <span className="mr-2 inline-flex gap-1">
-              {preset.map((color) => (
+            <span className="mr-1.5 inline-flex gap-0.5">
+              {preset.colors.map((color) => (
                 <span
                   key={color}
-                  className="h-3 w-3 rounded-full"
+                  className="h-3 w-3 rounded-full border border-ink/5"
                   style={{ backgroundColor: color }}
                 />
               ))}
             </span>
-            パレット{index + 1}
+            {preset.name}
           </button>
         ))}
       </div>

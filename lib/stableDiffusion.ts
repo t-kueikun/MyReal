@@ -25,12 +25,12 @@ function buildStableDiffusionPrompt(
   variation: VariationOption
 ) {
   const moodPromptById: Record<string, string> = {
-    pastel: 'soft pastel colors, gentle plush-toy feel with light shading',
-    vivid: 'bright vivid colors, pop and energetic feel with soft volume',
-    retro: 'muted retro colors, vintage kawaii feel with gentle shading',
-    clay: 'matte coloring, clay-like simplicity with subtle soft shadows',
-    paper: 'clean paper-like illustration style with minimal soft shading',
-    neon: 'bright neon colors with bold outlines and soft glow'
+    kawaii: 'soft pastel colors, gentle plush-toy feel with light shading, round and cute',
+    cool: 'cool muted tones, slightly edgy and sleek, calm confident vibe',
+    pop: 'bright vivid colors, pop and energetic feel with playful volume',
+    yume: 'dreamy pastel lavender and mint tones, soft fantasy glow, magical feel',
+    natural: 'warm earthy tones, cozy and gentle, natural organic warmth',
+    mystery: 'deep moody colors, night-like tones, slightly mysterious and enchanting'
   };
 
   const variationPromptById: Record<string, string> = {
@@ -52,7 +52,7 @@ function buildStableDiffusionPrompt(
     'Make it look like a cute animal, ghost, or creature.',
     'Keep the character concept and main silhouette from the input image. Ignore all construction marks.',
     'Simple rounded shapes, minimal details, chunky adorable proportions.',
-    'Soft 3D plush-toy volume with gentle shading and highlights. Soft rounded outlines, not too thick or harsh.',
+    'MUST have soft 3D plush-toy volume with visible gentle shading, highlights, and round marshmallow-like depth. Never flat or 2D. Soft rounded outlines, not too thick or harsh.',
     'Warm smiley expression with pink cheeks. Can vary with sleeping face, waving pose, etc.',
     'Background must be pure white (#FFFFFF) with no shadows or patterns.',
     'Do not include any guide lines, dotted lines, triangles, circles, measurements, arrows, text, or overlays.',

@@ -1,11 +1,11 @@
 export type MoodId =
   | 'random'
-  | 'pastel'
-  | 'vivid'
-  | 'retro'
-  | 'clay'
-  | 'paper'
-  | 'neon';
+  | 'kawaii'
+  | 'cool'
+  | 'pop'
+  | 'yume'
+  | 'natural'
+  | 'mystery';
 
 export type MoodOption = {
   id: MoodId;
@@ -16,38 +16,38 @@ export type MoodOption = {
 export const MOOD_OPTIONS: MoodOption[] = [
   {
     id: 'random',
-    label: 'おまかせ (毎回ランダム)',
+    label: '🎲 おまかせ',
     prompt: ''
   },
   {
-    id: 'pastel',
-    label: 'パステル・ふんわり',
-    prompt: '淡いパステル調。柔らかい陰影でふんわりした質感。'
+    id: 'kawaii',
+    label: '🩷 かわいく',
+    prompt: 'ふんわりやさしい雰囲気。パステル調のやわらかい色合いで、まるくてキュートに。'
   },
   {
-    id: 'vivid',
-    label: 'ビビッド・ポップ',
-    prompt: '彩度高めでポップ。コントラストは少し強め。'
+    id: 'cool',
+    label: '😎 かっこよく',
+    prompt: '落ち着いたクールな雰囲気。やや渋めの色味で、キリッとした印象に。'
   },
   {
-    id: 'retro',
-    label: 'レトロ・くすみ',
-    prompt: 'くすみカラーでレトロ感。少しざらっとした質感。'
+    id: 'pop',
+    label: '🌈 ポップに',
+    prompt: '元気いっぱいのポップな雰囲気。彩度高めでカラフル、楽しい印象に。'
   },
   {
-    id: 'clay',
-    label: 'クレイ・マット',
-    prompt: '粘土のようなマット質感。影は柔らかく控えめ。'
+    id: 'yume',
+    label: '✨ ゆめかわ',
+    prompt: 'メルヘンで夢のような雰囲気。ラベンダーやミントなど淡い色で幻想的に。'
   },
   {
-    id: 'paper',
-    label: '紙・イラスト',
-    prompt: '紙に描いたような風合い。粒子感を少しだけ。'
+    id: 'natural',
+    label: '🍃 ナチュラル',
+    prompt: '自然であたたかい雰囲気。アースカラーで素朴さとやさしさを出す。'
   },
   {
-    id: 'neon',
-    label: 'ネオン・サイバー',
-    prompt: '発色強めのネオン感。色の輪郭をくっきり。'
+    id: 'mystery',
+    label: '🌙 ミステリアス',
+    prompt: '不思議でちょっと神秘的な雰囲気。深い色味と夜っぽいトーンで。'
   }
 ];
 

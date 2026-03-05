@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { ChevronLeft, Check, SlidersHorizontal } from 'lucide-react';
 import { MOOD_OPTIONS, type MoodId } from '../../lib/mood';
 
-const DEFAULT_PALETTE = ['#f08f6f', '#f3c969', '#5a9bd8'];
+const DEFAULT_PALETTE = ['#f8a4b8', '#ffd1a9', '#ffe8cc'];
 const DEFAULT_MOOD: MoodId = 'random';
 
 export default function DrawPageClient() {
@@ -82,7 +82,7 @@ export default function DrawPageClient() {
                         <PalettePicker value={palette} onChange={setPalette} />
                     </div>
                     <div className="border-t border-ink/10 pt-3">
-                        <label className="text-xs font-bold text-ink/50 uppercase tracking-widest mb-2 block">仕上げムード</label>
+                        <label className="text-xs font-bold text-ink/50 uppercase tracking-widest mb-2 block">スタイル</label>
                         <select
                             className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm"
                             value={mood}
