@@ -5,8 +5,8 @@ import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
 import { logWarn } from './logger';
 
 const METRICS_PATH = path.join(DATA_DIR, 'metrics.json');
-const RUNS_TABLE = 'areal_runs';
-const FEEDBACK_TABLE = 'areal_feedback';
+const RUNS_TABLE = 'myreal_runs';
+const FEEDBACK_TABLE = 'myreal_feedback';
 
 export type Metrics = {
   generated: number;
