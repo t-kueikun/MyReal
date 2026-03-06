@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
 
+const QUICK_LOOK_POSTER =
+  'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
+
 function isIOSQuickLook() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
@@ -266,15 +269,19 @@ export default function QuickLookButton({ imageUrl }: { imageUrl: string }) {
         href={usdzUrl || '#'}
         className={`btn btn-accent w-full py-4 text-lg ${busy || !usdzUrl ? 'opacity-60 pointer-events-none' : ''}`}
         onClick={(event) => {
-          if (!usdzUrl) event.preventDefault();
+          if (!usdzUrl) {
+            event.preventDefault();
+          }
         }}
       >
-        {busy || !usdzUrl ? 'ARを準備中…' : 'iPhone ARで開く'}
         <img
-          src={imageUrl}
+          src={QUICK_LOOK_POSTER}
           alt=""
-          style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
+          width={1}
+          height={1}
+          className="absolute w-px h-px opacity-0 pointer-events-none"
         />
+        {busy || !usdzUrl ? 'ARを準備中…' : 'iPhone ARで開く'}
       </a>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>

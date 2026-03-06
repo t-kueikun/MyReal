@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { DATA_DIR } from './dataDir';
 import { getSupabaseAdmin, isSupabaseEnabled } from './supabase';
 
 export type FeedbackEntry = {
@@ -9,11 +10,10 @@ export type FeedbackEntry = {
   token?: string;
 };
 
-const DATA_DIR = path.join(process.cwd(), 'data');
 const FEEDBACK_PATH = path.join(DATA_DIR, 'feedback.json');
 let cache: FeedbackEntry[] | null = null;
 let writing = Promise.resolve();
-const FEEDBACK_TABLE = 'areal_feedback';
+const FEEDBACK_TABLE = 'myreal_feedback';
 
 async function loadLocal() {
   if (cache) return cache;

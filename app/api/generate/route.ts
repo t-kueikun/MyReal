@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z, ZodError } from 'zod';
-import { validateImage, resizeToLimit, removeNearWhiteBackground } from '../../../lib/image';
+import {
+  validateImage,
+  resizeToLimit,
+  removeNearWhiteBackground,
+  removeEdgeDarkBands
+} from '../../../lib/image';
 import { removeBackground } from '../../../lib/backgroundRemove';
 import { generateWithGemini } from '../../../lib/gemini';
 import { generateWithOpenRouter } from '../../../lib/openrouter';
@@ -99,16 +104,6 @@ export async function POST(request: NextRequest) {
       const fallbackInput = bgRemove
         ? processed
         : await removeNearWhiteBackground(processed);
-      if (env.stabilityApiKey) {
-        aiAttempted = true;
-        try {
-          output = await generateWithStableDiffusion(processed, palette, mood, variation);
-          provider = 'stable-diffusion';
-        } catch (error) {
-          logError('Stable Diffusion generation failed', { error: String(error) });
-        }
-      }
-
       if (!output && env.openRouterApiKey) {
         aiAttempted = true;
         try {
@@ -116,6 +111,16 @@ export async function POST(request: NextRequest) {
           provider = 'openrouter';
         } catch (error) {
           logError('OpenRouter generation failed', { error: String(error) });
+        }
+      }
+
+      if (!output && env.stabilityApiKey) {
+        aiAttempted = true;
+        try {
+          output = await generateWithStableDiffusion(processed, palette, mood, variation);
+          provider = 'stable-diffusion';
+        } catch (error) {
+          logError('Stable Diffusion generation failed', { error: String(error) });
         }
       }
 
@@ -153,6 +158,7 @@ export async function POST(request: NextRequest) {
         })
         .png()
         .toBuffer();
+      output = await removeEdgeDarkBands(output);
 
       const saved = await saveImage(output, 'image/png', 'generated');
       const { token, exp } = createToken(env.tokenTtlHours);
