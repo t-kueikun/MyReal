@@ -4,14 +4,19 @@
 
 :root {
   /* HSL Values for better manipulation */
-  --paper-1: 247 20% 95%; /* #f6f4f0 -> Slightly cooler/cleaner */
-  --paper-2: 36 20% 92%;  /* #f1ece4 -> Warmer accent */
-  --ink: 220 15% 10%;     /* #101114 -> Deep Blue-Black */
-  --accent: 210 60% 60%;  /* #5a9bd8 -> Softer Blue */
-  --accent-2: 15 80% 69%; /* #f08f6f -> Vibrant Coral */
-  
+  --paper-1: 247 20% 95%;
+  /* #f6f4f0 -> Slightly cooler/cleaner */
+  --paper-2: 36 20% 92%;
+  /* #f1ece4 -> Warmer accent */
+  --ink: 220 15% 10%;
+  /* #101114 -> Deep Blue-Black */
+  --accent: 210 60% 60%;
+  /* #5a9bd8 -> Softer Blue */
+  --accent-2: 15 80% 69%;
+  /* #f08f6f -> Vibrant Coral */
+
   --glass-border: 255 255 255;
-  
+
   --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: var(--font-heading), system-ui;
 }
@@ -44,15 +49,15 @@ textarea:focus-visible {
 /* Glassmorphism Card to Replace Standard Card */
 .card {
   @apply relative overflow-hidden rounded-3xl;
-  background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.6));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255, 0.6);
-  box-shadow: 
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.02),
     0 10px 15px -3px rgba(0, 0, 0, 0.04),
-    0 20px 40px -4px rgba(0,0,0,0.06),
-    inset 0 0 0 1px rgba(255,255,255,0.5);
+    0 20px 40px -4px rgba(0, 0, 0, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
 .glass-panel {
@@ -101,12 +106,88 @@ input[type='range'] {
 
 /* Animations */
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .animate-float {
   animation: float 4s ease-in-out infinite;
+}
+
+/* Progress bar shimmer */
+@keyframes progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.progress-bar {
+  background: linear-gradient(90deg,
+      hsl(var(--accent)) 0%,
+      hsl(var(--accent-2)) 40%,
+      hsl(var(--accent)) 60%,
+      hsl(210 80% 75%) 80%,
+      hsl(var(--accent)) 100%);
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s ease-in-out infinite;
+  border-radius: 9999px;
+}
+
+/* Message fade-in-up */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.animate-fade-msg {
+  animation: fade-in-up 3.5s ease-in-out;
+}
+
+/* Pulse glow for loading icon */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

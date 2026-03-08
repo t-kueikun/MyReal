@@ -177,20 +177,42 @@ export default function GeneratePage() {
   };
 
   if (state === 'loading') {
-    const progress = Math.min(90, Math.round((elapsed / 40) * 100));
+    // Non-linear easing: fast at the start, slows down toward the end
+    const t = Math.min(elapsed / 45, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+    const progress = Math.min(92, Math.round(eased * 92));
+
+    const messages = [
+      '🎨 AIがゆるキャラを描いています…',
+      '✨ 色をぬりぬり中…',
+      '🖌️ 輪郭を整えています…',
+      '🌈 仕上げに色をのせています…',
+      '🎀 かわいさをチェック中…',
+      '🔮 魔法をかけています…',
+      '💫 もうすぐできあがり！',
+    ];
+    const msgIndex = Math.floor(elapsed / 4) % messages.length;
+
     return (
       <main className="mx-auto max-w-5xl px-6 py-16 space-y-8">
         <div className="card p-8 space-y-6">
           <h1 className="font-heading text-2xl">生成中…</h1>
-          <div className="skeleton h-64 w-full" />
+          <div className="flex items-center justify-center h-64 w-full rounded-2xl bg-white/40">
+            <span className="animate-pulse-glow text-6xl select-none">✨</span>
+          </div>
           <div className="space-y-3">
-            <div className="h-2 w-full rounded-full bg-ink/10 overflow-hidden">
+            <div className="h-3 w-full rounded-full bg-ink/10 overflow-hidden">
               <div
-                className="h-full bg-accent transition-all"
+                className="h-full progress-bar transition-all duration-700 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-ink/70">AIがゆるキャラを作成しています。</p>
+            <p
+              className="animate-fade-msg text-ink/80 font-semibold"
+              key={msgIndex}
+            >
+              {messages[msgIndex]}
+            </p>
             <p className="text-xs text-ink/50">
               目安: 20〜40秒 / 経過: {elapsed}秒
             </p>
