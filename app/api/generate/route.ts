@@ -4,7 +4,8 @@ import {
   validateImage,
   resizeToLimit,
   removeNearWhiteBackground,
-  removeEdgeDarkBands
+  removeEdgeDarkBands,
+  softenOuterOutline
 } from '../../../lib/image';
 import { removeBackground } from '../../../lib/backgroundRemove';
 import { generateWithGemini } from '../../../lib/gemini';
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
         .png()
         .toBuffer();
       output = await removeEdgeDarkBands(output);
+      output = await softenOuterOutline(output);
 
       const saved = await saveImage(output, 'image/png', 'generated');
       const { token, exp } = createToken(env.tokenTtlHours);

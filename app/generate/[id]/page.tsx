@@ -38,70 +38,77 @@ export default function GeneratePage() {
   const didRunRef = useRef(false);
 
   const runGenerate = async (force = false) => {
-    // 1. Check if result already exists for this ID (Reload Support)
-    const existingResult = loadResult(draftId);
-    if (existingResult && !force) {
-      setResult(existingResult);
-      setState('done');
-      const url = `${window.location.origin}/ar/${existingResult.token}`;
-      QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
-      return;
-    }
-
-    if (!force) {
-      const last = Number(sessionStorage.getItem(AUTO_KEY) || '0');
-      if (Date.now() - last < 2000) {
+    try {
+      // 1. Check if result already exists for this ID (Reload Support)
+      const existingResult = loadResult(draftId);
+      if (existingResult && !force) {
+        setResult(existingResult);
+        setState('done');
+        const url = `${window.location.origin}/ar/${existingResult.token}`;
+        QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
         return;
       }
-      sessionStorage.setItem(AUTO_KEY, Date.now().toString());
-    }
 
-    setState('loading');
-    setError('');
+      if (!force) {
+        const last = Number(sessionStorage.getItem(AUTO_KEY) || '0');
+        if (Date.now() - last < 2000) {
+          return;
+        }
+        sessionStorage.setItem(AUTO_KEY, Date.now().toString());
+      }
 
-    // 2. Load Draft Data using ID
-    const activeDraft = draft ?? loadDraft(draftId);
-    const blob = await loadImageBlob('input', draftId);
+      setState('loading');
+      setError('');
 
-    if (!activeDraft || !blob) {
-      setError('入力データが見つかりません。最初からやり直してください。');
+      // 2. Load Draft Data using ID
+      const activeDraft = draft ?? loadDraft(draftId);
+      const blob = await loadImageBlob('input', draftId);
+
+      if (!activeDraft || !blob) {
+        setError('入力データが見つかりません。最初からやり直してください。');
+        setState('error');
+        return;
+      }
+
+      const file = new File([blob], 'input.png', { type: blob.type || 'image/png' });
+      const form = new FormData();
+      form.append('file', file);
+      form.append('palette', JSON.stringify(palette));
+      form.append('bgRemove', activeDraft.bgRemove ? '1' : '0');
+      form.append('mood', mood);
+      form.append('variation', variation);
+      form.append('source', activeDraft.source);
+      if (activeDraft.priorityCode) form.append('priorityCode', activeDraft.priorityCode);
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        body: form
+      });
+
+      if (!res.ok) {
+        const payload = await res
+          .json()
+          .catch(() => ({ message: '生成に失敗しました。' }));
+        setError(payload.message || '生成に失敗しました。');
+        setState('error');
+        return;
+      }
+
+      const data = (await res.json()) as GenerateResult;
+
+      // 3. Save Result and Clear Draft
+      saveResult(draftId, data);
+      setResult(data);
+      clearDraft(draftId);
+      deleteImageBlob('input', draftId).catch(() => null);
+
+      setState('done');
+      const url = `${window.location.origin}/ar/${data.token}`;
+      QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
+    } catch {
+      setError('通信が不安定です。少し待って再試行してください。');
       setState('error');
-      return;
     }
-
-    const file = new File([blob], 'input.png', { type: blob.type || 'image/png' });
-    const form = new FormData();
-    form.append('file', file);
-    form.append('palette', JSON.stringify(palette));
-    form.append('bgRemove', activeDraft.bgRemove ? '1' : '0');
-    form.append('mood', mood);
-    form.append('variation', variation);
-    form.append('source', activeDraft.source);
-    if (activeDraft.priorityCode) form.append('priorityCode', activeDraft.priorityCode);
-
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      body: form
-    });
-
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({ message: '生成に失敗しました。' }));
-      setError(payload.message || '生成に失敗しました。');
-      setState('error');
-      return;
-    }
-
-    const data = (await res.json()) as GenerateResult;
-
-    // 3. Save Result and Clear Draft
-    saveResult(draftId, data);
-    setResult(data);
-    clearDraft(draftId);
-    deleteImageBlob('input', draftId).catch(() => null);
-
-    setState('done');
-    const url = `${window.location.origin}/ar/${data.token}`;
-    QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
   };
 
   useEffect(() => {

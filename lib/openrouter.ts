@@ -1,6 +1,6 @@
 import { env } from './config';
 import { logError } from './logger';
-import { buildPrompt } from './prompt';
+import { buildOpenRouterPrompt } from './prompt';
 import { VariationOption } from './variation';
 import { MoodOption } from './mood';
 
@@ -76,7 +76,7 @@ export async function generateWithOpenRouter(
     throw new Error('OpenRouter API key missing');
   }
 
-  const prompt = buildPrompt(palette, mood, variation);
+  const prompt = buildOpenRouterPrompt(palette, mood, variation);
   const base64 = image.toString('base64');
   const headers: Record<string, string> = {
     Authorization: `Bearer ${env.openRouterApiKey}`,

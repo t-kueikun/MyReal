@@ -26,3 +26,54 @@ export function buildPrompt(
     : '';
   return `${BASE_PROMPT}${moodLine}${variationLine}\nパレット: ${palette.join(', ')}`;
 }
+
+function moodPromptEn(mood?: MoodOption) {
+  if (!mood) return 'soft cute finish with balanced contrast';
+  const map: Record<string, string> = {
+    kawaii: 'soft pastel and sweet gentle look',
+    cool: 'calm cool tones with slightly sharp attitude',
+    pop: 'bright vivid pop energy',
+    yume: 'dreamy pastel fantasy look',
+    natural: 'warm earthy and cozy feel',
+    mystery: 'deep moody and magical night-like feel'
+  };
+  return map[mood.id] || 'soft cute finish with balanced contrast';
+}
+
+function variationPromptEn(variation?: VariationOption) {
+  if (!variation) return 'standard redesign';
+  const map: Record<string, string> = {
+    subtle: 'keep close to the original motif and silhouette',
+    standard:
+      'redesign as a new mascot inspired by the input, do not trace lines',
+    bold:
+      'keep core motif but make bold stylistic changes and add unique features'
+  };
+  return map[variation.id] || 'standard redesign';
+}
+
+export function buildOpenRouterPrompt(
+  palette: string[],
+  mood?: MoodOption,
+  variation?: VariationOption
+) {
+  const variationJa = variation ? buildVariationPrompt(variation) : '';
+  return [
+    'Create exactly one mascot character image.',
+    'Use the input image only as inspiration; do not trace, do not fill original lines.',
+    'Character style: rounded, plush-like, marshmallow soft 3D volume, gentle shading.',
+    'Outline rule: no black outlines, use soft outline color close to body color.',
+    'Do not draw a stroke/border around the outer silhouette. Avoid dark rim lines on edges.',
+    'Background rule: pure white (#FFFFFF), no texture, no shadow, no pattern.',
+    'Forbidden: guide lines, dotted lines, measurement lines, triangles, arrows, text, watermark, logo.',
+    'Keep the character fully opaque (no accidental transparency holes inside the body).',
+    `Color palette (must dominate): ${palette.join(', ')}.`,
+    `Mood: ${moodPromptEn(mood)}.`,
+    `Variation: ${variationPromptEn(variation)}.`,
+    variation ? `Variation detail (ja): ${variationJa}` : '',
+    mood ? `Mood detail (ja): ${mood.prompt}` : '',
+    'Output: image only.'
+  ]
+    .filter(Boolean)
+    .join('\n');
+}

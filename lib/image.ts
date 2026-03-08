@@ -144,3 +144,101 @@ export async function removeEdgeDarkBands(buffer: Buffer) {
     .png()
     .toBuffer();
 }
+
+function luminance(r: number, g: number, b: number) {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function isBoundaryPixel(
+  data: Buffer,
+  width: number,
+  height: number,
+  channels: number,
+  x: number,
+  y: number
+) {
+  const idx = (y * width + x) * channels;
+  const a = channels >= 4 ? data[idx + 3] : 255;
+  if (a < 190) return false;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) return true;
+      const nIdx = (ny * width + nx) * channels;
+      const na = channels >= 4 ? data[nIdx + 3] : 255;
+      if (na < 20) return true;
+    }
+  }
+  return false;
+}
+
+export async function softenOuterOutline(buffer: Buffer) {
+  const image = sharp(buffer).ensureAlpha();
+  const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const boundary = new Uint8Array(width * height);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (isBoundaryPixel(data, width, height, channels, x, y)) {
+        boundary[y * width + x] = 1;
+      }
+    }
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (!boundary[y * width + x]) continue;
+      const idx = (y * width + x) * channels;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const pixelLum = luminance(r, g, b);
+
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
+      let count = 0;
+
+      for (let dy = -2; dy <= 2; dy += 1) {
+        for (let dx = -2; dx <= 2; dx += 1) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          if (boundary[ny * width + nx]) continue;
+          const nIdx = (ny * width + nx) * channels;
+          const na = channels >= 4 ? data[nIdx + 3] : 255;
+          if (na < 200) continue;
+          sumR += data[nIdx];
+          sumG += data[nIdx + 1];
+          sumB += data[nIdx + 2];
+          count += 1;
+        }
+      }
+
+      if (count < 3) continue;
+      const meanR = sumR / count;
+      const meanG = sumG / count;
+      const meanB = sumB / count;
+      const meanLum = luminance(meanR, meanG, meanB);
+
+      const veryDark = pixelLum < 48;
+      const darkerThanInside = pixelLum + 16 < meanLum;
+
+      if (!veryDark && !darkerThanInside) continue;
+
+      // Blend toward inside color to suppress unwanted stroke while preserving silhouette.
+      data[idx] = Math.round(meanR * 0.9 + r * 0.1);
+      data[idx + 1] = Math.round(meanG * 0.9 + g * 0.1);
+      data[idx + 2] = Math.round(meanB * 0.9 + b * 0.1);
+    }
+  }
+
+  return sharp(data, {
+    raw: { width, height, channels }
+  })
+    .png()
+    .toBuffer();
+}

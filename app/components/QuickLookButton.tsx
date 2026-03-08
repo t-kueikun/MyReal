@@ -84,6 +84,15 @@ function sampleCornerColor(data: Uint8ClampedArray, width: number, height: numbe
   };
 }
 
+function hasMeaningfulTransparency(data: Uint8ClampedArray) {
+  let translucent = 0;
+  const total = data.length / 4;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 250) translucent += 1;
+  }
+  return translucent / total > 0.01;
+}
+
 function buildProcessedCanvas(image: HTMLImageElement) {
   const canvas = document.createElement('canvas');
   canvas.width = image.width;
@@ -93,8 +102,13 @@ function buildProcessedCanvas(image: HTMLImageElement) {
   ctx.drawImage(image, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
+  if (hasMeaningfulTransparency(data)) {
+    return { canvas, imageData };
+  }
+  const original = new Uint8ClampedArray(data);
   const bg = sampleCornerColor(data, canvas.width, canvas.height);
-  const bgThreshold = 28;
+  const bgThreshold = 22;
+  let removed = 0;
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -104,6 +118,7 @@ function buildProcessedCanvas(image: HTMLImageElement) {
       Math.abs(r - bg.r) + Math.abs(g - bg.g) + Math.abs(b - bg.b);
     if (distance <= bgThreshold) {
       data[i + 3] = 0;
+      removed += 1;
       continue;
     }
     if (alpha > 0 && alpha < 255) {
@@ -118,6 +133,11 @@ function buildProcessedCanvas(image: HTMLImageElement) {
         Math.max(0, Math.round((b - bg.b * (1 - a)) / a))
       );
     }
+  }
+  const removedRatio = removed / (data.length / 4);
+  // Safety valve: if corner-keying removed too much, keep the original alpha.
+  if (removedRatio > 0.55) {
+    data.set(original);
   }
   ctx.putImageData(imageData, 0, 0);
   return { canvas, imageData };
@@ -168,7 +188,7 @@ async function buildUsdZ(imageUrl: string) {
     metalness: 0,
     transparent: true,
     opacity: 1,
-    alphaTest: 0.15
+    alphaTest: 0.03
   });
 
   const front = new THREE.Mesh(
