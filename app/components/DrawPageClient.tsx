@@ -52,13 +52,23 @@ export default function DrawPageClient() {
     };
 
     return (
-        <div className="fixed inset-0 flex flex-col bg-paper overflow-hidden">
+        <div className="fixed inset-0 flex flex-col overflow-hidden bg-paper">
+            <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-[url('/images/site-wallpaper.png')] bg-cover bg-center opacity-70"
+            />
+            <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-white/70"
+            />
             {/* Header */}
-            <header className="flex-none flex items-center justify-between p-4 z-10">
+            <header className="z-10 flex-none flex items-center justify-between p-4">
                 <Link href="/" className="btn btn-ghost rounded-full w-12 h-12 p-0 flex items-center justify-center">
                     <ChevronLeft className="w-6 h-6" />
                 </Link>
-                <h1 className="font-heading text-xl">描く</h1>
+                <h1 className="px-5 py-2 font-heading text-xl text-ink">
+                    描く
+                </h1>
                 <button
                     onClick={() => setShowSettings(!showSettings)}
                     className={`btn rounded-full w-12 h-12 p-0 flex items-center justify-center ${showSettings ? 'bg-ink/10' : 'btn-ghost'}`}
@@ -68,7 +78,7 @@ export default function DrawPageClient() {
             </header>
 
             {/* Main Canvas Area - maximized */}
-            <main className="flex-1 relative w-full h-full p-2 md:p-6 flex items-center justify-center bg-paper-2/50">
+            <main className="relative flex h-full w-full flex-1 items-center justify-center p-2 md:p-6">
                 <div className="relative w-full max-w-3xl aspect-square max-h-[85vh] shadow-xl md:rounded-3xl overflow-hidden bg-white border border-white/60">
                     <DrawingCanvas ref={drawingRef} />
                 </div>
