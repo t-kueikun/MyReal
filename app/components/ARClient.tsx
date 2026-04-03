@@ -143,7 +143,12 @@ export default function ARClient({ imageUrl, token }: Props) {
         <div className="card p-4">
           {modeChecked ? (
             supportsXR ? (
-              <XRViewer imageUrl={imageUrl} controls={controls} onCapture={handleCapture} />
+              <XRViewer
+                imageUrl={imageUrl}
+                controls={controls}
+                onCapture={handleCapture}
+                onControlsChange={setControls}
+              />
             ) : null
           ) : (
             <div className="skeleton h-[420px] w-full" />
@@ -152,7 +157,8 @@ export default function ARClient({ imageUrl, token }: Props) {
         <div className="card p-5 space-y-4">
           <h2 className="font-heading text-lg">操作</h2>
           <p className="text-sm text-ink/60">
-            AR 画面では「面に配置」または画面タップで再配置できます。
+            AR 画面では 1 本指で移動、2 本指で拡大・回転できます。
+            「面に配置」「正面に配置」で再配置できます。
           </p>
           <label className="flex flex-col gap-2 text-sm text-ink/70">
             スケール
@@ -328,11 +334,13 @@ function calculateVisualCenter(image: HTMLImageElement): { x: number; y: number 
 function XRViewer({
   imageUrl,
   controls,
-  onCapture
+  onCapture,
+  onControlsChange
 }: {
   imageUrl: string;
   controls: Controls;
   onCapture: (dataUrl: string) => void;
+  onControlsChange: (updater: (prev: Controls) => Controls) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -340,6 +348,21 @@ function XRViewer({
   const tiltRef = useRef({ x: 0, y: 0 });
   const sceneRef = useRef<{ place: (preferHit?: boolean) => void } | null>(null);
   const startSessionRef = useRef<(() => Promise<void>) | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const tapRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+    startOffsetX: number;
+    startOffsetY: number;
+  } | null>(null);
+  const gestureRef = useRef<{
+    startDistance: number;
+    startAngle: number;
+    startScale: number;
+    startRotation: number;
+  } | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
 
   useEffect(() => {
@@ -507,7 +530,6 @@ function XRViewer({
         }
         // Face camera on placement to keep the card upright
         group.lookAt(cameraPosition.x, group.position.y, cameraPosition.z);
-        group.rotation.y += Math.PI; // Face the camera
         group.userData.baseRotation = 0;
         group.userData.anchorPos = group.position.clone();
         group.userData.initialQuaternion = group.quaternion.clone();
@@ -539,11 +561,6 @@ function XRViewer({
           hitTestRefSpace = null;
         }
 
-        const handleSelect = () => {
-          place(true);
-        };
-        session.addEventListener('select', handleSelect);
-
         renderer.setAnimationLoop((_time, frame) => {
           frameId += 1;
           if (!scene || !camera || !group) return;
@@ -573,7 +590,6 @@ function XRViewer({
           renderer!.render(scene, camera);
         });
         session.addEventListener('end', () => {
-          session.removeEventListener('select', handleSelect);
           renderer?.setAnimationLoop(null);
           xrSession = null;
           setSessionActive(false);
@@ -632,19 +648,114 @@ function XRViewer({
     onCapture(dataUrl);
   };
 
-  const handlePointerPlace = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
     if (target?.closest('button')) return;
-    sceneRef.current?.place(true);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (pointersRef.current.size === 1) {
+      tapRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+        startOffsetX: controlsRef.current.offsetX,
+        startOffsetY: controlsRef.current.offsetY
+      };
+      gestureRef.current = null;
+    } else if (pointersRef.current.size >= 2) {
+      const [a, b] = Array.from(pointersRef.current.values());
+      tapRef.current = null;
+      gestureRef.current = {
+        startDistance: distanceBetween(a, b),
+        startAngle: angleBetween(a, b),
+        startScale: controlsRef.current.scale,
+        startRotation: controlsRef.current.rotation
+      };
+    }
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (tapRef.current?.pointerId === event.pointerId) {
+      const dx = event.clientX - tapRef.current.startX;
+      const dy = event.clientY - tapRef.current.startY;
+      const movedDistance = Math.hypot(
+        event.clientX - tapRef.current.startX,
+        event.clientY - tapRef.current.startY
+      );
+      if (movedDistance > 12) {
+        tapRef.current.moved = true;
+      }
+      if (tapRef.current.moved) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const movementScale = 1.2;
+        onControlsChange((prev) => ({
+          ...prev,
+          offsetX: clamp(
+            tapRef.current!.startOffsetX + (dx / Math.max(1, rect.width)) * movementScale,
+            -0.8,
+            0.8
+          ),
+          offsetY: clamp(
+            tapRef.current!.startOffsetY - (dy / Math.max(1, rect.height)) * movementScale,
+            -0.8,
+            0.8
+          )
+        }));
+      }
+    }
+
+    if (pointersRef.current.size < 2 || !gestureRef.current) return;
+
+    const [a, b] = Array.from(pointersRef.current.values());
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    const nextDistance = distanceBetween(a, b);
+    const nextAngle = angleBetween(a, b);
+    const scaleRatio =
+      gesture.startDistance > 0
+        ? nextDistance / gesture.startDistance
+        : 1;
+    const rotationDelta = normalizeAngle(nextAngle - gesture.startAngle);
+    const nextScale = clamp(gesture.startScale * scaleRatio, 0.35, 2.5);
+    const nextRotation = normalizeAngle(gesture.startRotation + rotationDelta);
+
+    onControlsChange((prev) => ({
+      ...prev,
+      scale: nextScale,
+      rotation: nextRotation
+    }));
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (tapRef.current?.pointerId === event.pointerId) {
+      tapRef.current = null;
+    }
+
+    if (pointersRef.current.size < 2) {
+      gestureRef.current = null;
+    }
   };
 
   return (
     <div
       ref={containerRef}
-      onPointerDown={sessionActive ? handlePointerPlace : undefined}
+      onPointerDown={sessionActive ? handlePointerDown : undefined}
+      onPointerMove={sessionActive ? handlePointerMove : undefined}
+      onPointerUp={sessionActive ? handlePointerUp : undefined}
+      onPointerCancel={sessionActive ? handlePointerUp : undefined}
       className={
         sessionActive
-          ? 'fixed inset-0 z-50 h-dvh w-screen overflow-hidden bg-transparent'
+          ? 'fixed inset-0 z-50 h-dvh w-screen touch-none overflow-hidden bg-transparent'
           : 'relative h-[420px] overflow-hidden rounded-2xl bg-black'
       }
     >
@@ -678,12 +789,13 @@ function XRViewer({
           正面に配置
         </button>
       </div>
-      <button
-        className="btn btn-primary absolute bottom-4 right-4 z-10"
-        onClick={capture}
-      >
-        シャッター
-      </button>
+      {sessionActive ? (
+        <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-2xl bg-black/40 px-3 py-2 text-xs text-white backdrop-blur">
+          1本指で移動 / 2本指で拡大・回転
+          <br />
+          写真保存は端末のスクリーンショットを使ってください
+        </div>
+      ) : null}
       {!sessionActive ? (
         <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.15))]" />
       ) : null}
@@ -1131,15 +1243,14 @@ function createLayers(
   const geometry = new THREE.PlaneGeometry(1, aspect);
   const layers: THREE.Mesh[] = [];
 
-  const masks = createLayerMasks(image);
-
   // Shadow Layer (Behind everything)
   const shadowMaterial = new THREE.MeshBasicMaterial({
-    map: masks.length > 0 ? new THREE.CanvasTexture(masks[0]) : texture, // Use first layer mask for base shape
+    map: texture,
     color: 0x000000,
     transparent: true,
     opacity: 0.25,
-    alphaTest: 0.1
+    alphaTest: 0.1,
+    side: THREE.DoubleSide
   });
   const shadowMesh = new THREE.Mesh(geometry, shadowMaterial);
   shadowMesh.position.z = -0.05; // Behind
@@ -1148,22 +1259,20 @@ function createLayers(
   shadowMesh.scale.set(1.02, 1.02, 1.02);
   layers.push(shadowMesh);
 
-  masks.forEach((mask, index) => {
-    const layerTexture = new THREE.CanvasTexture(mask);
-    const material = new THREE.MeshStandardMaterial({
-      map: layerTexture,
-      normalMap,
-      transparent: true,
-      roughness: 0.95,
-      metalness: 0.05,
-      alphaTest: 0.1
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.z = index * 0.02;
-    mesh.userData.parallaxIndex = index + 1;
-    mesh.userData.baseZ = mesh.position.z;
-    layers.push(mesh);
+  const material = new THREE.MeshStandardMaterial({
+    map: texture,
+    normalMap,
+    transparent: true,
+    roughness: 0.95,
+    metalness: 0.05,
+    alphaTest: 0.1,
+    side: THREE.DoubleSide
   });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.z = 0;
+  mesh.userData.parallaxIndex = 1;
+  mesh.userData.baseZ = mesh.position.z;
+  layers.push(mesh);
 
   return layers;
 }
@@ -1351,6 +1460,20 @@ function applyParallax(group: THREE.Group, tilt: { x: number; y: number }) {
       mesh.position.z = Number(mesh.userData.baseZ || 0);
     }
   });
+}
+
+function distanceBetween(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function angleBetween(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+function normalizeAngle(value: number) {
+  if (value > Math.PI) return value - Math.PI * 2;
+  if (value < -Math.PI) return value + Math.PI * 2;
+  return value;
 }
 
 function clamp(value: number, min: number, max: number) {
