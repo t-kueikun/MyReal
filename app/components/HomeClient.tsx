@@ -12,21 +12,9 @@ export default function HomeClient({ eventMode }: { eventMode?: boolean }) {
         <div className="flex items-center justify-center">
           <Link
             href="/draw"
-            className="group relative flex h-52 w-full flex-col items-center justify-center overflow-hidden rounded-3xl p-8 text-ink shadow-lift transition-transform duration-300 hover:scale-105 sm:w-96"
+            className="group relative flex h-52 w-full flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white/75 p-8 text-ink shadow-lift backdrop-blur-sm transition-transform duration-300 hover:scale-105 sm:w-96"
           >
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-[url('/images/site-wallpaper.png')] bg-cover bg-center opacity-95 transition-transform duration-500 group-hover:scale-105"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-white/35 transition-colors duration-300 group-hover:bg-white/24"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-gradient-to-tr from-white/30 via-white/10 to-transparent opacity-70"
-            />
-            <div className="relative z-10 flex flex-col items-center justify-center drop-shadow-[0_2px_10px_rgba(255,255,255,0.6)]">
+            <div className="relative z-10 flex flex-col items-center justify-center">
               <PenTool size={72} className="mb-4" />
               <span className="font-heading text-3xl">描いてつくる</span>
             </div>
