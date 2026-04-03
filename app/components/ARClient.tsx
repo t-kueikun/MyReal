@@ -44,12 +44,9 @@ function isAndroid() {
 export default function ARClient({ imageUrl, token }: Props) {
   const [supportsXR, setSupportsXR] = useState(false);
   const [modeChecked, setModeChecked] = useState(false);
-  const [viewMode, setViewMode] = useState<'xr' | 'camera'>('camera');
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [voiceGuide, setVoiceGuide] = useState(false);
-  const [transparentBackground, setTransparentBackground] = useState(false);
-  const [stabilizeView, setStabilizeView] = useState(false);
   const modeInitRef = useRef(false);
   const quickLookOnly = !supportsXR && isIOSQuickLook();
   const androidOnly = !supportsXR && isAndroid();
@@ -62,18 +59,12 @@ export default function ARClient({ imageUrl, token }: Props) {
         setSupportsXR(ok);
         setModeChecked(true);
         if (!modeInitRef.current) {
-          //          setViewMode(ok ? 'xr' : 'camera'); 
-          // Default to camera first as per user flow usually preference? Or XR? 
-          // Original code was: setViewMode(ok ? 'xr' : 'camera');
-          // Let's keep it but user seems to be using Fallback mostly.
-          setViewMode(ok ? 'xr' : 'camera');
           modeInitRef.current = true;
         }
       });
     } else {
       setModeChecked(true);
       if (!modeInitRef.current) {
-        setViewMode('camera');
         modeInitRef.current = true;
       }
     }
@@ -105,7 +96,7 @@ export default function ARClient({ imageUrl, token }: Props) {
     await downloadImage(dataUrl);
   }, [token]);
 
-  const useXr = viewMode === 'xr' && supportsXR;
+  const useXr = supportsXR;
 
   if (quickLookOnly) {
     return (
@@ -135,82 +126,34 @@ export default function ARClient({ imageUrl, token }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-ink/60">
         <span className="tag">
-          {modeChecked ? (useXr ? 'WebXR' : '2D合成') : '判定中'}
+          {modeChecked ? (useXr ? 'WebXR' : 'ネイティブAR') : '判定中'}
         </span>
         <span>
           {modeChecked
             ? useXr
               ? 'ARモード'
-              : 'カメラ合成モード'
+              : '対応ARを使用'
             : '互換性を確認中'}
         </span>
       </div>
-      {supportsXR ? (
-        <div className="flex flex-wrap gap-2">
-          <button
-            className={`btn ${useXr ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setViewMode('xr')}
-            type="button"
-          >
-            ARモード
-          </button>
-          <button
-            className={`btn ${!useXr ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setViewMode('camera')}
-            type="button"
-          >
-            カメラ合成で撮影
-          </button>
-          {!useXr ? (
-            <span className="text-sm text-ink/60 self-center">
-              写真を残す場合はこちらがおすすめです。
-            </span>
-          ) : null}
-        </div>
-      ) : (
+      {!supportsXR ? (
         <QuickLookButton imageUrl={imageUrl} />
-      )}
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-[1fr,320px]">
         <div className="card p-4">
           {modeChecked ? (
-            useXr ? (
+            supportsXR ? (
               <XRViewer imageUrl={imageUrl} controls={controls} onCapture={handleCapture} />
-            ) : (
-              <FallbackViewer
-                imageUrl={imageUrl}
-                controls={controls}
-                onCapture={handleCapture}
-                transparent={transparentBackground}
-                stabilize={stabilizeView}
-              />
-            )
+            ) : null
           ) : (
             <div className="skeleton h-[420px] w-full" />
           )}
         </div>
         <div className="card p-5 space-y-4">
           <h2 className="font-heading text-lg">操作</h2>
-
-          <label className="flex items-center gap-2 text-sm text-ink/70 font-bold bg-ink/5 p-2 rounded-lg">
-            <input
-              type="checkbox"
-              className="toggle toggle-primary toggle-sm"
-              checked={transparentBackground}
-              onChange={(event) => setTransparentBackground(event.target.checked)}
-            />
-            背景を透過して保存
-          </label>
-          {!useXr ? (
-            <label className="flex items-center gap-2 text-sm text-ink/70 font-bold bg-ink/5 p-2 rounded-lg">
-              <input
-                type="checkbox"
-                className="toggle toggle-primary toggle-sm"
-                checked={stabilizeView}
-                onChange={(event) => setStabilizeView(event.target.checked)}
-              />
-              固定モード (追従なし)
-            </label>
-          ) : null}
+          <p className="text-sm text-ink/60">
+            AR 画面では「面に配置」または画面タップで再配置できます。
+          </p>
           <label className="flex flex-col gap-2 text-sm text-ink/70">
             スケール
             <input
@@ -396,6 +339,8 @@ function XRViewer({
   const controlsRef = useRef(controls);
   const tiltRef = useRef({ x: 0, y: 0 });
   const sceneRef = useRef<{ place: (preferHit?: boolean) => void } | null>(null);
+  const startSessionRef = useRef<(() => Promise<void>) | null>(null);
+  const [sessionActive, setSessionActive] = useState(false);
 
   useEffect(() => {
     controlsRef.current = controls;
@@ -424,11 +369,21 @@ function XRViewer({
     let reticle: THREE.Mesh | null = null;
     let frameId = 0;
     let disposed = false;
+    let initialPlacementPending = true;
 
     const init = async () => {
       const container = containerRef.current;
       const canvas = canvasRef.current;
       if (!container || !canvas) return;
+
+      const syncRendererSize = () => {
+        if (!container || !renderer || !camera) return;
+        const width = Math.max(1, container.clientWidth);
+        const height = Math.max(1, container.clientHeight || 420);
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      };
 
       renderer = new THREE.WebGLRenderer({
         canvas,
@@ -438,14 +393,14 @@ function XRViewer({
       });
       renderer.xr.enabled = true;
       renderer.setPixelRatio(window.devicePixelRatio || 1);
-      renderer.setSize(container.clientWidth, 420);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.shadowMap.enabled = false;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
       scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(70, container.clientWidth / 420, 0.01, 20);
+      camera = new THREE.PerspectiveCamera(70, 1, 0.01, 20);
       scene.add(camera);
+      syncRendererSize();
 
       const ambient = new THREE.AmbientLight(0xffffff, 0.8);
       const directional = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -509,8 +464,11 @@ function XRViewer({
       layers.forEach((layer) => {
         layer.position.x += meshShiftX;
         layer.position.y += meshShiftY;
-        group!.add(layer)
+        group!.add(layer);
       });
+
+      const bounds = new THREE.Box3().setFromObject(group);
+      group.userData.floorOffset = -bounds.min.y;
 
       // Default: Place at 0,0,-1.5 (1.5m in front of origin)
       group.position.set(0, 0, -1.5);
@@ -520,100 +478,116 @@ function XRViewer({
 
       const place = (preferHit = true) => {
         if (!camera || !group) return;
+        const activeCamera =
+          renderer?.xr.isPresenting ? renderer.xr.getCamera() : camera;
+        const cameraPosition = new THREE.Vector3();
+        const cameraDirection = new THREE.Vector3();
+        activeCamera.getWorldPosition(cameraPosition);
+        activeCamera.getWorldDirection(cameraDirection);
+
         if (preferHit && reticle?.visible) {
           const hitPosition = new THREE.Vector3();
           reticle.matrix.decompose(hitPosition, new THREE.Quaternion(), new THREE.Vector3());
           group.position.copy(hitPosition);
+          group.position.y += Number(group.userData.floorOffset || 0);
         } else {
-          const dir = new THREE.Vector3();
-          camera.getWorldDirection(dir);
-          dir.y = 0;
-          dir.normalize();
+          cameraDirection.y = 0;
+          if (cameraDirection.lengthSq() < 1e-6) {
+            cameraDirection.set(0, 0, -1);
+          } else {
+            cameraDirection.normalize();
+          }
 
           // Place 1.2m in front of camera
-          group.position.copy(camera.position).add(dir.multiplyScalar(1.2));
+          group.position.copy(cameraPosition).add(cameraDirection.multiplyScalar(1.2));
+          group.position.y = Math.max(
+            Number(group.userData.floorOffset || 0),
+            cameraPosition.y - 1
+          );
         }
         // Face camera on placement to keep the card upright
-        group.lookAt(camera.position.x, group.position.y, camera.position.z);
+        group.lookAt(cameraPosition.x, group.position.y, cameraPosition.z);
         group.rotation.y += Math.PI; // Face the camera
         group.userData.baseRotation = 0;
         group.userData.anchorPos = group.position.clone();
         group.userData.initialQuaternion = group.quaternion.clone();
       };
 
-      const placeOnHit = () => place(true);
+      sceneRef.current = { place };
 
-      sceneRef.current = { place: placeOnHit };
+      startSessionRef.current = async () => {
+        if (!renderer || !renderer.xr) return;
+        const session = await navigator.xr?.requestSession('immersive-ar', {
+          requiredFeatures: ['local-floor'],
+          optionalFeatures: ['dom-overlay', 'hit-test'],
+          domOverlay: { root: container }
+        });
+        if (!session) return;
+        xrSession = session;
+        setSessionActive(true);
+        requestAnimationFrame(syncRendererSize);
+        renderer.xr.setReferenceSpaceType('local-floor');
+        await renderer.xr.setSession(session);
 
-      const startButton = container.querySelector<HTMLButtonElement>('[data-ar-start]');
-      if (startButton) {
-        startButton.onclick = async () => {
-          if (!renderer || !renderer.xr) return;
-          const session = await navigator.xr?.requestSession('immersive-ar', {
-            requiredFeatures: ['local-floor'],
-            optionalFeatures: ['dom-overlay', 'hit-test'],
-            domOverlay: { root: container }
-          });
-          if (!session) return;
-          xrSession = session;
-          renderer.xr.setReferenceSpaceType('local-floor');
-          await renderer.xr.setSession(session);
+        try {
+          hitTestSpace = await session.requestReferenceSpace('viewer');
+          hitTestRefSpace = await session.requestReferenceSpace('local-floor');
+          hitTestSource = await session.requestHitTestSource({ space: hitTestSpace });
+        } catch {
+          hitTestSource = null;
+          hitTestSpace = null;
+          hitTestRefSpace = null;
+        }
 
-          try {
-            hitTestSpace = await session.requestReferenceSpace('viewer');
-            hitTestRefSpace = await session.requestReferenceSpace('local-floor');
-            hitTestSource = await session.requestHitTestSource({ space: hitTestSpace });
-          } catch {
-            hitTestSource = null;
-            hitTestSpace = null;
-            hitTestRefSpace = null;
-          }
+        const handleSelect = () => {
+          place(true);
+        };
+        session.addEventListener('select', handleSelect);
 
-          placeOnHit();
-
-          renderer.setAnimationLoop((_time, frame) => {
-            frameId += 1;
-            if (!scene || !camera || !group) return;
-            if (frame && hitTestSource && hitTestRefSpace && reticle) {
-              const hits = frame.getHitTestResults(hitTestSource);
-              if (hits.length > 0) {
-                const hit = hits[0];
-                const pose = hit.getPose(hitTestRefSpace);
-                if (pose) {
-                  reticle.visible = true;
-                  reticle.matrix.fromArray(pose.transform.matrix);
-                } else {
-                  reticle.visible = false;
-                }
+        renderer.setAnimationLoop((_time, frame) => {
+          frameId += 1;
+          if (!scene || !camera || !group) return;
+          if (frame && hitTestSource && hitTestRefSpace && reticle) {
+            const hits = frame.getHitTestResults(hitTestSource);
+            if (hits.length > 0) {
+              const hit = hits[0];
+              const pose = hit.getPose(hitTestRefSpace);
+              if (pose) {
+                reticle.visible = true;
+                reticle.matrix.fromArray(pose.transform.matrix);
               } else {
                 reticle.visible = false;
               }
-            } else if (reticle) {
+            } else {
               reticle.visible = false;
             }
-            updateGroup(group, camera, controlsRef.current);
-            applyParallax(group, tiltRef.current);
-            renderer!.render(scene, camera);
-          });
-          session.addEventListener('end', () => {
-            renderer?.setAnimationLoop(null);
-            xrSession = null;
-            hitTestSource?.cancel?.();
-            hitTestSource = null;
-            hitTestSpace = null;
-            hitTestRefSpace = null;
-            if (reticle) reticle.visible = false;
-          });
-        };
-      }
+          } else if (reticle) {
+            reticle.visible = false;
+          }
+          if (initialPlacementPending && reticle?.visible) {
+            place(true);
+            initialPlacementPending = false;
+          }
+          updateGroup(group, camera, controlsRef.current);
+          applyParallax(group, tiltRef.current);
+          renderer!.render(scene, camera);
+        });
+        session.addEventListener('end', () => {
+          session.removeEventListener('select', handleSelect);
+          renderer?.setAnimationLoop(null);
+          xrSession = null;
+          setSessionActive(false);
+          hitTestSource?.cancel?.();
+          hitTestSource = null;
+          hitTestSpace = null;
+          hitTestRefSpace = null;
+          if (reticle) reticle.visible = false;
+          requestAnimationFrame(syncRendererSize);
+        });
+      };
 
       const resizeObserver = new ResizeObserver(() => {
-        if (!container || !renderer || !camera) return;
-        const width = container.clientWidth;
-        const height = 420;
-        renderer.setSize(width, height);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
+        syncRendererSize();
       });
       resizeObserver.observe(container);
 
@@ -633,6 +607,7 @@ function XRViewer({
         renderer.setAnimationLoop(null);
         renderer.dispose();
       }
+      startSessionRef.current = null;
       if (scene) {
         scene.traverse((obj) => {
           if ((obj as THREE.Mesh).geometry) {
@@ -657,19 +632,39 @@ function XRViewer({
     onCapture(dataUrl);
   };
 
+  const handlePointerPlace = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button')) return;
+    sceneRef.current?.place(true);
+  };
+
   return (
-    <div ref={containerRef} className="relative">
+    <div
+      ref={containerRef}
+      onPointerDown={sessionActive ? handlePointerPlace : undefined}
+      className={
+        sessionActive
+          ? 'fixed inset-0 z-50 h-dvh w-screen overflow-hidden bg-transparent'
+          : 'relative h-[420px] overflow-hidden rounded-2xl bg-black'
+      }
+    >
       <canvas
         ref={canvasRef}
-        className="h-[420px] w-full rounded-2xl bg-black"
+        className={
+          sessionActive
+            ? 'h-full w-full bg-transparent'
+            : 'h-full w-full rounded-2xl bg-black'
+        }
       />
-      <button
-        data-ar-start
-        className="btn btn-accent absolute bottom-4 left-4"
-      >
-        ARを起動
-      </button>
-      <div className="absolute top-4 left-4 flex gap-2">
+      {!sessionActive ? (
+        <button
+          className="btn btn-accent absolute bottom-4 left-4 z-10"
+          onClick={() => startSessionRef.current?.().catch(() => null)}
+        >
+          ARを起動
+        </button>
+      ) : null}
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
         <button
           className="btn btn-sm btn-ghost bg-black/40 text-white backdrop-blur"
           onClick={() => sceneRef.current?.place(true)}
@@ -684,12 +679,14 @@ function XRViewer({
         </button>
       </div>
       <button
-        className="btn btn-primary absolute bottom-4 right-4"
+        className="btn btn-primary absolute bottom-4 right-4 z-10"
         onClick={capture}
       >
         シャッター
       </button>
-      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.15))]" />
+      {!sessionActive ? (
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.15))]" />
+      ) : null}
     </div>
   );
 }
@@ -1330,6 +1327,7 @@ function updateGroup(
 
   group.quaternion.copy(initialQ);
   group.rotateY(controls.rotation);
+  group.scale.setScalar(controls.scale);
 
   const anchorPos = group.userData.anchorPos as THREE.Vector3;
   if (anchorPos) {
