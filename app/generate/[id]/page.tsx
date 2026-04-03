@@ -344,13 +344,13 @@ export default function GeneratePage() {
             {result ? (
               <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-4 space-y-2">
                 <p className="text-sm font-semibold text-ink/80">
-                  iPhoneはここからARを開く
+                  ここから AR ページを開く
                 </p>
                 <Link href={`/ar/${result.token}`} className="btn btn-accent w-full py-4 text-lg">
-                  iPhone ARで開く
+                  ARを開く
                 </Link>
                 <p className="text-xs text-ink/50">
-                  AndroidはQRから開いてください。
+                  開いた端末に応じて、iPhone は Quick Look、Android は Scene Viewer が起動します。
                 </p>
               </div>
             ) : null}
