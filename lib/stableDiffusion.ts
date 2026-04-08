@@ -36,7 +36,7 @@ function buildStableDiffusionPrompt(
   const variationPromptById: Record<string, string> = {
     subtle: 'keep the general impression and motif close to the input while softening into a round cute mascot',
     standard:
-      'use the input as inspiration to redesign a new cute mascot character. Do not trace or fill in the original lines. Reinterpret into round, adorable shapes.',
+      'use the input as inspiration to redesign a new cute mascot character. Do not trace or fill in the original lines. Do not treat enclosed line areas as regions to color. Reinterpret into round, adorable shapes.',
     bold:
       'use the input as loose inspiration and make bold stylistic changes, adding unique accessories and creative reinterpretation'
   };
@@ -50,7 +50,7 @@ function buildStableDiffusionPrompt(
   return [
     'Create one cute mascot character in a kawaii style like BT21 or LINE Friends characters.',
     'Make it look like a cute animal, ghost, or creature.',
-    'Use the input image as inspiration for the character concept. Do not trace or fill in the original lines. Create a new cute character inspired by the input.',
+    'Use the input image as inspiration for the character concept. Do not trace or fill in the original lines. Do not interpret closed outlines as fillable shapes. Do not auto-fill the inside of the original linework. Create a new cute character inspired by the input.',
     'Simple rounded shapes, minimal details, chunky adorable proportions.',
     'MUST have soft 3D plush-toy volume with visible gentle shading, highlights, and round marshmallow-like depth. Never flat or 2D. Soft rounded outlines in a color similar to the character, NOT black outlines. No hard black edges.',
     'Warm smiley expression with pink cheeks. Can vary with sleeping face, waving pose, etc.',
@@ -67,6 +67,12 @@ function buildStableDiffusionNegativePrompt() {
     'black outlines',
     'black edges',
     'thick outlines',
+    'filled line art',
+    'filled outlines',
+    'inside-outline fill',
+    'solid fill inside sketch lines',
+    'coloring book fill',
+    'paint bucket fill',
     'guide lines',
     'construction lines',
     'dotted lines',
