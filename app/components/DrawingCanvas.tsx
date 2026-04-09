@@ -11,7 +11,16 @@ export type DrawingCanvasHandle = {
 
 type Tool = 'pen' | 'eraser';
 
-const CANVAS_SIZE = 768;
+type Point = {
+  x: number;
+  y: number;
+};
+
+const DEFAULT_CANVAS_SIZE = 1536;
+const MIN_CANVAS_SIZE = 1280;
+const MAX_CANVAS_SIZE = 2048;
+const MIN_RENDER_SCALE = 2;
+const HISTORY_LIMIT = 10;
 
 const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; disabled?: boolean; className?: string }>(
   ({ onDirty, disabled, className }, ref) => {
@@ -21,12 +30,45 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     const [eraserSize, setEraserSize] = useState(24);
     const isDrawingRef = useRef(false);
     const activePointerIdRef = useRef<number | null>(null);
+    const lastPointRef = useRef<Point | null>(null);
     const history = useRef<ImageData[]>([]);
 
     const getContext = () => {
       const canvas = canvasRef.current;
       if (!canvas) return null;
       return canvas.getContext('2d', { willReadFrequently: true });
+    };
+
+    const configureContext = (ctx: CanvasRenderingContext2D) => {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.fillStyle = 'transparent';
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    };
+
+    const resetDrawingState = () => {
+      isDrawingRef.current = false;
+      activePointerIdRef.current = null;
+      lastPointRef.current = null;
+    };
+
+    const clearCanvas = () => {
+      const canvas = canvasRef.current;
+      const ctx = getContext();
+      if (!canvas || !ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      resetDrawingState();
+    };
+
+    const getTargetSize = (displaySize: number, devicePixelRatio: number) => {
+      const scaledSize = Math.max(
+        displaySize * devicePixelRatio,
+        displaySize * MIN_RENDER_SCALE,
+        MIN_CANVAS_SIZE
+      );
+
+      return Math.min(Math.round(scaledSize), MAX_CANVAS_SIZE);
     };
 
     useImperativeHandle(ref, () => ({
@@ -39,13 +81,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       },
       clear: () => {
         if (disabled) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = getContext();
-        if (!ctx) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        isDrawingRef.current = false;
-        activePointerIdRef.current = null;
+        clearCanvas();
         history.current = [];
       },
       undo: () => {
@@ -56,29 +92,97 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
         if (!ctx) return;
         const snapshot = history.current.pop();
         if (!snapshot) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          isDrawingRef.current = false;
-          activePointerIdRef.current = null;
+          clearCanvas();
           return;
         }
         ctx.putImageData(snapshot, 0, 0);
+        resetDrawingState();
       }
     }));
 
     useEffect(() => {
-      const ctx = getContext();
-      if (!ctx) return;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.fillStyle = 'transparent';
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const resizeCanvas = () => {
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const width = getTargetSize(rect.width, window.devicePixelRatio || 1);
+        const height = getTargetSize(rect.height, window.devicePixelRatio || 1);
+
+        if (canvas.width === width && canvas.height === height) {
+          const ctx = getContext();
+          if (ctx) configureContext(ctx);
+          return;
+        }
+
+        const previousCanvas = document.createElement('canvas');
+        previousCanvas.width = canvas.width;
+        previousCanvas.height = canvas.height;
+        const previousCtx = previousCanvas.getContext('2d');
+        if (previousCtx && canvas.width > 0 && canvas.height > 0) {
+          previousCtx.drawImage(canvas, 0, 0);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = getContext();
+        if (!ctx) return;
+
+        configureContext(ctx);
+        if (previousCanvas.width > 0 && previousCanvas.height > 0) {
+          ctx.drawImage(previousCanvas, 0, 0, previousCanvas.width, previousCanvas.height, 0, 0, width, height);
+        }
+        history.current = [];
+      };
+
+      resizeCanvas();
+
+      const resizeObserver = new ResizeObserver(() => {
+        resizeCanvas();
+      });
+      resizeObserver.observe(canvas);
+
+      const handleWindowResize = () => {
+        resizeCanvas();
+      };
+      window.addEventListener('resize', handleWindowResize);
+
+      return () => {
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', handleWindowResize);
+      };
     }, []);
 
-    const getPos = (event: React.PointerEvent) => {
+    const getPointerMetrics = () => {
       const canvas = canvasRef.current;
-      if (!canvas) return { x: 0, y: 0 };
+      if (!canvas) {
+        return {
+          rect: null,
+          scaleX: 1,
+          scaleY: 1,
+          strokeScale: 1
+        };
+      }
+
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      const scaleX = rect.width ? canvas.width / rect.width : 1;
+      const scaleY = rect.height ? canvas.height / rect.height : 1;
+
+      return {
+        rect,
+        scaleX,
+        scaleY,
+        strokeScale: Math.max(scaleX, scaleY)
+      };
+    };
+
+    const getPos = (event: React.PointerEvent) => {
+      const { rect, scaleX, scaleY } = getPointerMetrics();
+      if (!rect) return { x: 0, y: 0 };
+
       return {
         x: (event.clientX - rect.left) * scaleX,
         y: (event.clientY - rect.top) * scaleY
@@ -95,19 +199,26 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
 
       canvas.setPointerCapture(event.pointerId);
       activePointerIdRef.current = event.pointerId;
+      configureContext(ctx);
 
-      // Save state
       history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-      if (history.current.length > 20) history.current.shift();
+      if (history.current.length > HISTORY_LIMIT) history.current.shift();
 
       const { x, y } = getPos(event);
+      const { strokeScale } = getPointerMetrics();
+
+      ctx.strokeStyle = tool === 'pen' ? '#101114' : '#000000';
+      ctx.fillStyle = tool === 'pen' ? '#101114' : '#000000';
+      ctx.lineWidth = (tool === 'pen' ? penSize : eraserSize) * strokeScale;
+      ctx.globalCompositeOperation = tool === 'pen' ? 'source-over' : 'destination-out';
+
+      ctx.beginPath();
+      ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
       ctx.beginPath();
       ctx.moveTo(x, y);
 
-      ctx.strokeStyle = tool === 'pen' ? '#101114' : 'rgba(0,0,0,0)';
-      ctx.lineWidth = tool === 'pen' ? penSize : eraserSize;
-      ctx.globalCompositeOperation = tool === 'pen' ? 'source-over' : 'destination-out';
-
+      lastPointRef.current = { x, y };
       isDrawingRef.current = true;
       onDirty?.();
     };
@@ -122,23 +233,37 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       }
       event.preventDefault();
       if ((event.buttons & 1) === 0) {
-        isDrawingRef.current = false;
-        activePointerIdRef.current = null;
         const ctx = getContext();
         if (!ctx) return;
         ctx.closePath();
         ctx.globalCompositeOperation = 'source-over';
+        resetDrawingState();
         return;
       }
-      const { x, y } = getPos(event);
       const ctx = getContext();
       if (!ctx) return;
-      ctx.lineTo(x, y);
+      const point = getPos(event);
+      const previousPoint = lastPointRef.current;
+
+      if (!previousPoint) {
+        lastPointRef.current = point;
+        ctx.moveTo(point.x, point.y);
+        return;
+      }
+
+      const midPoint = {
+        x: (previousPoint.x + point.x) / 2,
+        y: (previousPoint.y + point.y) / 2
+      };
+
+      ctx.quadraticCurveTo(previousPoint.x, previousPoint.y, midPoint.x, midPoint.y);
       ctx.stroke();
+      lastPointRef.current = point;
     };
 
     const endDrawing = (event?: React.PointerEvent) => {
       if (!isDrawingRef.current) return;
+      const point = event ? getPos(event) : lastPointRef.current;
       if (event) {
         if (activePointerIdRef.current !== event.pointerId) return;
         const canvas = canvasRef.current;
@@ -147,12 +272,16 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
         }
         event.preventDefault();
       }
-      isDrawingRef.current = false;
-      activePointerIdRef.current = null;
+
       const ctx = getContext();
       if (!ctx) return;
+      if (point) {
+        ctx.lineTo(point.x, point.y);
+        ctx.stroke();
+      }
       ctx.closePath();
       ctx.globalCompositeOperation = 'source-over';
+      resetDrawingState();
     };
 
     return (
@@ -209,8 +338,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
         <div className={`flex-1 relative rounded-3xl overflow-hidden bg-white shadow-inner ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
           <canvas
             ref={canvasRef}
-            width={CANVAS_SIZE}
-            height={CANVAS_SIZE}
+            width={DEFAULT_CANVAS_SIZE}
+            height={DEFAULT_CANVAS_SIZE}
             className="block w-full h-full touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
