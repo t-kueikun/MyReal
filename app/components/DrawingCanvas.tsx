@@ -29,6 +29,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     const [penSize, setPenSize] = useState(6);
     const [eraserSize, setEraserSize] = useState(24);
     const isDrawingRef = useRef(false);
+    const activePointerIdRef = useRef<number | null>(null);
     const lastPointRef = useRef<Point | null>(null);
     const history = useRef<ImageData[]>([]);
 
@@ -46,13 +47,18 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       ctx.imageSmoothingQuality = 'high';
     };
 
+    const resetDrawingState = () => {
+      isDrawingRef.current = false;
+      activePointerIdRef.current = null;
+      lastPointRef.current = null;
+    };
+
     const clearCanvas = () => {
       const canvas = canvasRef.current;
       const ctx = getContext();
       if (!canvas || !ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      lastPointRef.current = null;
-      isDrawingRef.current = false;
+      resetDrawingState();
     };
 
     const getTargetSize = (displaySize: number, devicePixelRatio: number) => {
@@ -89,6 +95,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
           return;
         }
         ctx.putImageData(snapshot, 0, 0);
+        resetDrawingState();
       }
     }));
 
@@ -181,7 +188,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     const handlePointerDown = (event: React.PointerEvent) => {
-      if (disabled) return;
+      if (disabled || !event.isPrimary || event.button !== 0) return;
       event.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -189,7 +196,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       if (!ctx) return;
 
       canvas.setPointerCapture(event.pointerId);
-
+      activePointerIdRef.current = event.pointerId;
       configureContext(ctx);
 
       history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -215,8 +222,23 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     const handlePointerMove = (event: React.PointerEvent) => {
-      if (disabled || !isDrawingRef.current) return;
+      if (
+        disabled ||
+        !isDrawingRef.current ||
+        activePointerIdRef.current !== event.pointerId
+      ) {
+        return;
+      }
       event.preventDefault();
+      if ((event.buttons & 1) === 0) {
+        const ctx = getContext();
+        if (!ctx) return;
+        ctx.closePath();
+        ctx.globalCompositeOperation = 'source-over';
+        resetDrawingState();
+        return;
+      }
+
       const ctx = getContext();
       if (!ctx) return;
       const point = getPos(event);
@@ -239,17 +261,16 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     const endDrawing = (event?: React.PointerEvent) => {
+      if (!isDrawingRef.current) return;
       const point = event ? getPos(event) : lastPointRef.current;
       if (event) {
+        if (activePointerIdRef.current !== event.pointerId) return;
         const canvas = canvasRef.current;
         if (canvas?.hasPointerCapture(event.pointerId)) {
           canvas.releasePointerCapture(event.pointerId);
         }
         event.preventDefault();
       }
-
-      isDrawingRef.current = false;
-      lastPointRef.current = null;
 
       const ctx = getContext();
       if (!ctx) return;
@@ -259,6 +280,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       }
       ctx.closePath();
       ctx.globalCompositeOperation = 'source-over';
+      resetDrawingState();
     };
 
     return (
@@ -322,7 +344,6 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
             onPointerMove={handlePointerMove}
             onPointerUp={endDrawing}
             onPointerCancel={endDrawing}
-            onPointerLeave={endDrawing}
             suppressHydrationWarning
           />
           {!disabled && (
