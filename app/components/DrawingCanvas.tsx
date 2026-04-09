@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Pencil, Eraser, Undo2, RotateCcw, ImagePlus } from 'lucide-react';
+import { Pencil, Eraser, Undo2, RotateCcw } from 'lucide-react';
 
 export type DrawingCanvasHandle = {
   exportBlob: () => Promise<Blob | null>;
@@ -20,6 +20,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     const [penSize, setPenSize] = useState(6);
     const [eraserSize, setEraserSize] = useState(24);
     const isDrawingRef = useRef(false);
+    const activePointerIdRef = useRef<number | null>(null);
     const history = useRef<ImageData[]>([]);
 
     const getContext = () => {
@@ -43,6 +44,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
         const ctx = getContext();
         if (!ctx) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        isDrawingRef.current = false;
+        activePointerIdRef.current = null;
         history.current = [];
       },
       undo: () => {
@@ -54,6 +57,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
         const snapshot = history.current.pop();
         if (!snapshot) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+          isDrawingRef.current = false;
+          activePointerIdRef.current = null;
           return;
         }
         ctx.putImageData(snapshot, 0, 0);
@@ -81,7 +86,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     const handlePointerDown = (event: React.PointerEvent) => {
-      if (disabled) return;
+      if (disabled || !event.isPrimary || event.button !== 0) return;
       event.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -89,6 +94,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
       if (!ctx) return;
 
       canvas.setPointerCapture(event.pointerId);
+      activePointerIdRef.current = event.pointerId;
 
       // Save state
       history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -107,8 +113,23 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     const handlePointerMove = (event: React.PointerEvent) => {
-      if (disabled || !isDrawingRef.current) return;
+      if (
+        disabled ||
+        !isDrawingRef.current ||
+        activePointerIdRef.current !== event.pointerId
+      ) {
+        return;
+      }
       event.preventDefault();
+      if ((event.buttons & 1) === 0) {
+        isDrawingRef.current = false;
+        activePointerIdRef.current = null;
+        const ctx = getContext();
+        if (!ctx) return;
+        ctx.closePath();
+        ctx.globalCompositeOperation = 'source-over';
+        return;
+      }
       const { x, y } = getPos(event);
       const ctx = getContext();
       if (!ctx) return;
@@ -117,12 +138,17 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
     };
 
     const endDrawing = (event?: React.PointerEvent) => {
+      if (!isDrawingRef.current) return;
       if (event) {
+        if (activePointerIdRef.current !== event.pointerId) return;
         const canvas = canvasRef.current;
-        if (canvas) canvas.releasePointerCapture(event.pointerId);
+        if (canvas?.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
         event.preventDefault();
       }
       isDrawingRef.current = false;
+      activePointerIdRef.current = null;
       const ctx = getContext();
       if (!ctx) return;
       ctx.closePath();
@@ -190,7 +216,6 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
             onPointerMove={handlePointerMove}
             onPointerUp={endDrawing}
             onPointerCancel={endDrawing}
-            onPointerLeave={endDrawing}
             suppressHydrationWarning
           />
           {!disabled && (
