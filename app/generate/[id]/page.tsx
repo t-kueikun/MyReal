@@ -21,6 +21,7 @@ import PalettePicker from '../../components/PalettePicker';
 type GenerateResult = SavedResult;
 
 const AUTO_KEY = 'areal:auto-generate';
+const EMPTY_PALETTE: string[] = [];
 const VARIATION_HELP: Record<VariationId, string> = {
   subtle: '元の絵の雰囲気を残しつつ、やさしく整えます。',
   standard: 'ほどよくアレンジして、ゆるキャラらしさを足します。',
@@ -37,7 +38,7 @@ export default function GeneratePage() {
   const [draft, setDraft] = useState<GenerationDraft | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [mood, setMood] = useState<MoodId>('random');
-  const [palette, setPalette] = useState<string[]>(['#f08f6f', '#f3c969', '#5a9bd8']);
+  const [palette, setPalette] = useState<string[]>(EMPTY_PALETTE);
   const [variation, setVariation] = useState<VariationId>('standard');
   const [elapsed, setElapsed] = useState(0);
   const didRunRef = useRef(false);
@@ -74,6 +75,12 @@ export default function GeneratePage() {
       if (!activeDraft || !blob) {
         setError('入力データが見つかりません。最初からやり直してください。');
         setState('error');
+        return;
+      }
+
+      if (palette.length !== 3) {
+        setError('カラーを選んでから生成してください。');
+        setState('ready');
         return;
       }
 
@@ -140,7 +147,7 @@ export default function GeneratePage() {
       }
       setDraft(loadedDraft);
       setMood((loadedDraft.mood as MoodId) || 'random');
-      setPalette(loadedDraft.palette);
+      setPalette(EMPTY_PALETTE);
       setPreviewUrl(URL.createObjectURL(blob));
       setState('ready');
     };
@@ -255,12 +262,17 @@ export default function GeneratePage() {
               </section>
 
               <section className="flex min-h-0 flex-col gap-4">
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-[0.24em] text-ink/50">
-                    色を指定
-                  </label>
-                  <PalettePicker value={palette} onChange={setPalette} presetsOnly />
-                </div>
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-[0.24em] text-ink/50">
+                  色を指定
+                </label>
+                <PalettePicker value={palette} onChange={setPalette} presetsOnly />
+                {palette.length !== 3 ? (
+                  <p className="text-xs text-ink/50">
+                    生成前にカラーを1つ選んでください。
+                  </p>
+                ) : null}
+              </div>
 
                 <div className="space-y-2">
                   <label className="block text-xs font-bold uppercase tracking-[0.24em] text-ink/50">
@@ -316,6 +328,7 @@ export default function GeneratePage() {
                   <button
                     className="btn btn-primary px-8 py-4 text-lg shadow-xl shadow-ink/20"
                     onClick={() => runGenerate(true)}
+                    disabled={palette.length !== 3}
                   >
                     生成する
                   </button>

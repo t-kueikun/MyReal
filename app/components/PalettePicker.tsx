@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+
 export type PalettePreset = {
   id: string;
   name: string;
@@ -32,6 +35,7 @@ export default function PalettePicker({
   onChange: (colors: string[]) => void;
   presetsOnly?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const activePreset =
     PALETTE_PRESETS.find((preset) => isSamePalette(preset.colors, value)) ?? null;
 
@@ -59,36 +63,107 @@ export default function PalettePicker({
         <p className="text-xs text-ink/50">3色セットのプリセットから選べます。</p>
       )}
 
-      <div className={presetsOnly ? 'overflow-x-auto pb-1' : ''}>
-        <div className={presetsOnly ? 'flex min-w-max gap-2' : 'grid gap-2 sm:grid-cols-2'}>
-        {PALETTE_PRESETS.map((preset) => {
-          const selected = isSamePalette(preset.colors, value);
-          return (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => onChange(preset.colors)}
-              className={`rounded-2xl border px-3 py-3 text-left transition ${
-                selected
-                  ? 'border-accent bg-accent/10 shadow-sm'
-                  : 'border-ink/10 bg-white hover:bg-ink/5'
-              } ${presetsOnly ? 'w-40 shrink-0' : ''}`}
-            >
-              <span className="mb-2 inline-flex gap-1">
-                {preset.colors.map((color) => (
-                  <span
-                    key={color}
-                    className="h-4 w-4 rounded-full border border-ink/10"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
+      {presetsOnly ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            className="flex w-full items-center justify-between rounded-2xl border border-ink/10 bg-white px-4 py-3 text-left transition hover:bg-ink/5"
+          >
+            <span className="flex items-center gap-3">
+              {value.length === 3 ? (
+                <span className="inline-flex gap-1">
+                  {value.map((color) => (
+                    <span
+                      key={color}
+                      className="h-5 w-5 rounded-full border border-ink/10"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <span className="inline-flex gap-1">
+                  <span className="h-5 w-5 rounded-full border border-dashed border-ink/20 bg-ink/[0.03]" />
+                  <span className="h-5 w-5 rounded-full border border-dashed border-ink/20 bg-ink/[0.03]" />
+                  <span className="h-5 w-5 rounded-full border border-dashed border-ink/20 bg-ink/[0.03]" />
+                </span>
+              )}
+              <span>
+                <span className="block text-sm font-semibold text-ink">
+                  {activePreset ? activePreset.name : 'カラーを選ぶ'}
+                </span>
+                <span className="block text-xs text-ink/50">
+                  {open ? '一覧を閉じる' : activePreset ? 'タップして変更' : '未選択'}
+                </span>
               </span>
-              <span className="block text-sm font-semibold text-ink">{preset.name}</span>
-            </button>
-          );
-        })}
-      </div>
-      </div>
+            </span>
+            <ChevronDown className={`h-4 w-4 text-ink/50 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </button>
+
+          {open ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PALETTE_PRESETS.map((preset) => {
+                const selected = isSamePalette(preset.colors, value);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(preset.colors);
+                      setOpen(false);
+                    }}
+                    className={`rounded-2xl border px-3 py-3 text-left transition ${
+                      selected
+                        ? 'border-accent bg-accent/10 shadow-sm'
+                        : 'border-ink/10 bg-white hover:bg-ink/5'
+                    }`}
+                  >
+                    <span className="mb-2 inline-flex gap-1">
+                      {preset.colors.map((color) => (
+                        <span
+                          key={color}
+                          className="h-4 w-4 rounded-full border border-ink/10"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </span>
+                    <span className="block text-sm font-semibold text-ink">{preset.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {PALETTE_PRESETS.map((preset) => {
+            const selected = isSamePalette(preset.colors, value);
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => onChange(preset.colors)}
+                className={`rounded-2xl border px-3 py-3 text-left transition ${
+                  selected
+                    ? 'border-accent bg-accent/10 shadow-sm'
+                    : 'border-ink/10 bg-white hover:bg-ink/5'
+                }`}
+              >
+                <span className="mb-2 inline-flex gap-1">
+                  {preset.colors.map((color) => (
+                    <span
+                      key={color}
+                      className="h-4 w-4 rounded-full border border-ink/10"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </span>
+                <span className="block text-sm font-semibold text-ink">{preset.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {activePreset ? (
         <p className="text-xs text-ink/50">選択中: {activePreset.name}</p>

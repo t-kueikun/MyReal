@@ -122,13 +122,13 @@ export default function DrawPageClient() {
             <ChevronLeft className="h-6 w-6" />
           </Link>
 
-          <div aria-hidden="true" className="h-12 w-12" />
+          <h1 className="font-heading text-xl text-ink">描く</h1>
           <div aria-hidden="true" className="h-12 w-12" />
         </header>
 
         <main className="relative flex flex-1 items-center justify-center px-2 pb-24 pt-2 md:px-6">
-          <div className="relative flex h-full w-full max-w-3xl -translate-y-16 items-center justify-center py-2 md:-translate-y-[4.5rem]">
-            <div className="relative w-full aspect-square max-h-[calc(100%-1rem)] overflow-hidden rounded-[2rem] border border-white/60 bg-white shadow-xl md:max-h-[calc(100%-1.5rem)]">
+          <div className="relative flex h-full w-full max-w-3xl items-center justify-center py-2">
+            <div className="relative w-full aspect-square max-h-[calc(100%-0.5rem)] overflow-hidden rounded-[2rem] border border-white/60 bg-white shadow-xl">
               <div className="h-full w-full">
                 <DrawingCanvas
                   ref={drawingRef}
