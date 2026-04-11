@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { Pencil, Eraser, Undo2, RotateCcw } from 'lucide-react';
 
 export type DrawingCanvasHandle = {
@@ -10,6 +10,13 @@ export type DrawingCanvasHandle = {
 };
 
 type Tool = 'pen' | 'eraser';
+
+type DrawingCanvasProps = {
+  onDirty?: () => void;
+  disabled?: boolean;
+  className?: string;
+  overlayTop?: ReactNode;
+};
 
 type Point = {
   x: number;
@@ -22,8 +29,8 @@ const MAX_CANVAS_SIZE = 2048;
 const MIN_RENDER_SCALE = 2;
 const HISTORY_LIMIT = 10;
 
-const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; disabled?: boolean; className?: string }>(
-  ({ onDirty, disabled, className }, ref) => {
+const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
+  ({ onDirty, disabled, className, overlayTop }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [tool, setTool] = useState<Tool>('pen');
     const [penSize, setPenSize] = useState(6);
@@ -285,53 +292,55 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, { onDirty?: () => void; di
 
     return (
       <div className={`relative flex flex-col h-full ${className || ''}`}>
-        {/* Floating Toolbar */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 p-1.5 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-ink/5">
-          <button
-            type="button"
-            className={`btn-icon ${tool === 'pen' ? 'bg-ink text-white hover:bg-ink' : 'text-ink/60'}`}
-            onClick={() => setTool('pen')}
-            disabled={disabled}
-            title="ペン"
-          >
-            <Pencil size={20} />
-          </button>
-          <button
-            type="button"
-            className={`btn-icon ${tool === 'eraser' ? 'bg-ink text-white hover:bg-ink' : 'text-ink/60'}`}
-            onClick={() => setTool('eraser')}
-            disabled={disabled}
-            title="消しゴム"
-          >
-            <Eraser size={20} />
-          </button>
-          <div className="w-px h-6 bg-ink/10 mx-1" />
-          <button
-            type="button"
-            className="btn-icon text-ink/60 hover:text-ink"
-            onClick={() => {
-              if (ref && typeof ref !== 'function') {
-                ref.current?.undo();
-              }
-            }}
-            disabled={disabled}
-            title="元に戻す"
-          >
-            <Undo2 size={20} />
-          </button>
-          <button
-            type="button"
-            className="btn-icon text-red-500/80 hover:text-red-500 hover:bg-red-50"
-            onClick={() => {
-              if (ref && typeof ref !== 'function') {
-                ref.current?.clear();
-              }
-            }}
-            disabled={disabled}
-            title="全消去"
-          >
-            <RotateCcw size={20} />
-          </button>
+        <div className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 flex-col items-center gap-2">
+          {overlayTop}
+          <div className="flex items-center gap-2 rounded-full border border-ink/5 bg-white/92 p-1.5 shadow-lg backdrop-blur-md">
+            <button
+              type="button"
+              className={`btn-icon ${tool === 'pen' ? 'bg-ink text-white hover:bg-ink' : 'text-ink/60'}`}
+              onClick={() => setTool('pen')}
+              disabled={disabled}
+              title="ペン"
+            >
+              <Pencil size={20} />
+            </button>
+            <button
+              type="button"
+              className={`btn-icon ${tool === 'eraser' ? 'bg-ink text-white hover:bg-ink' : 'text-ink/60'}`}
+              onClick={() => setTool('eraser')}
+              disabled={disabled}
+              title="消しゴム"
+            >
+              <Eraser size={20} />
+            </button>
+            <div className="mx-1 h-6 w-px bg-ink/10" />
+            <button
+              type="button"
+              className="btn-icon text-ink/60 hover:text-ink"
+              onClick={() => {
+                if (ref && typeof ref !== 'function') {
+                  ref.current?.undo();
+                }
+              }}
+              disabled={disabled}
+              title="元に戻す"
+            >
+              <Undo2 size={20} />
+            </button>
+            <button
+              type="button"
+              className="btn-icon text-red-500/80 hover:bg-red-50 hover:text-red-500"
+              onClick={() => {
+                if (ref && typeof ref !== 'function') {
+                  ref.current?.clear();
+                }
+              }}
+              disabled={disabled}
+              title="全消去"
+            >
+              <RotateCcw size={20} />
+            </button>
+          </div>
         </div>
 
         <div className={`flex-1 relative rounded-3xl overflow-hidden bg-white shadow-inner ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>

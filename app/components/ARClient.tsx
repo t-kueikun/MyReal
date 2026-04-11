@@ -65,7 +65,7 @@ export default function ARClient({ imageUrl }: Props) {
           <div className="space-y-2">
             <h2 className="font-heading text-lg">ARを開く</h2>
             <p className="text-sm text-ink/60">
-              端末に合ったネイティブ AR で起動します。配置や撮影は各アプリ側の標準 UI を使ってください。
+              端末に合ったネイティブ AR で起動します。配置や撮影、カメラ切り替えは各アプリ側の標準 UI に従います。
             </p>
           </div>
 
@@ -88,6 +88,9 @@ export default function ARClient({ imageUrl }: Props) {
               2. 端末側の UI で配置やサイズ調整をする
               <br />
               3. 撮影や保存は端末の標準機能を使う
+            </p>
+            <p className="text-xs text-ink/50">
+              前面/背面カメラの切り替え可否は Quick Look / Scene Viewer 側の仕様に依存します。
             </p>
           </div>
         </div>

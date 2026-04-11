@@ -21,6 +21,11 @@ import PalettePicker from '../../components/PalettePicker';
 type GenerateResult = SavedResult;
 
 const AUTO_KEY = 'areal:auto-generate';
+const VARIATION_HELP: Record<VariationId, string> = {
+  subtle: '元の絵の雰囲気を残しつつ、やさしく整えます。',
+  standard: 'ほどよくアレンジして、ゆるキャラらしさを足します。',
+  bold: '小物や形を大きく変えて、印象をしっかり変えます。'
+};
 
 export default function GeneratePage() {
   const params = useParams();
@@ -36,6 +41,8 @@ export default function GeneratePage() {
   const [variation, setVariation] = useState<VariationId>('standard');
   const [elapsed, setElapsed] = useState(0);
   const didRunRef = useRef(false);
+  const activeVariation =
+    VARIATION_OPTIONS.find((option) => option.id === variation) ?? VARIATION_OPTIONS[1];
 
   const runGenerate = async (force = false) => {
     try {
@@ -224,77 +231,97 @@ export default function GeneratePage() {
 
   if (state === 'ready') {
     return (
-      <main className="min-h-screen px-6 py-6 flex items-center justify-center">
-        <div className="card w-full max-w-md p-6 space-y-4">
-          <div className="space-y-2">
-            <h1 className="font-heading text-xl">仕上げを選ぶ</h1>
-            <p className="text-sm text-ink/70">
-              仕上げムードを選んでから生成します。
-            </p>
-          </div>
-          {previewUrl ? (
-            <div className="rounded-3xl bg-white p-3 shadow-soft">
-              <img
-                src={previewUrl}
-                alt="入力画像"
-                className="w-full max-h-[38vh] object-contain"
-              />
-            </div>
-          ) : null}
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
-                色を指定
-              </label>
-              <PalettePicker value={palette} onChange={setPalette} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
-                仕上げムード
-              </label>
-              <select
-                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-2 text-sm"
-                value={mood}
-                onChange={(event) => setMood(event.target.value as MoodId)}
-              >
-                {MOOD_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-ink/50">
-                おまかせは毎回ランダムで変化します。
+      <main className="fixed inset-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-6">
+        <div className="mx-auto flex h-full max-w-6xl flex-col">
+          <div className="card flex h-full flex-col p-4 md:p-6">
+            <div className="mb-4 space-y-1">
+              <h1 className="font-heading text-2xl">仕上げを選ぶ</h1>
+              <p className="text-sm text-ink/70">
+                描いた絵を確認して、色と変化量を決めてから生成します。
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink/50 uppercase tracking-widest block">
-                変化量
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {VARIATION_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`btn ${variation === option.id ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setVariation(option.id)}
+
+            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr),360px]">
+              <section className="min-h-0">
+                {previewUrl ? (
+                  <div className="flex h-full items-center justify-center rounded-[2rem] border border-white/60 bg-white p-3 shadow-soft">
+                    <img
+                      src={previewUrl}
+                      alt="入力画像"
+                      className="h-full max-h-full w-full rounded-[1.5rem] object-contain"
+                    />
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="flex min-h-0 flex-col gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-[0.24em] text-ink/50">
+                    色を指定
+                  </label>
+                  <PalettePicker value={palette} onChange={setPalette} presetsOnly />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-[0.24em] text-ink/50">
+                    仕上げムード
+                  </label>
+                  <select
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                    value={mood}
+                    onChange={(event) => setMood(event.target.value as MoodId)}
                   >
-                    {option.label}
-                  </button>
-                ))}
+                    {MOOD_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-ink/50">
+                    おまかせは毎回ランダムで変化します。
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold uppercase tracking-[0.24em] text-ink/50">
+                    変化量
+                  </label>
+                <div className="overflow-x-auto pb-1">
+                  <div className="flex min-w-max gap-2">
+                    {VARIATION_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={`shrink-0 rounded-[1.25rem] border px-6 py-4 text-left transition ${
+                          variation === option.id
+                            ? 'border-ink bg-ink text-white shadow-lg shadow-ink/10'
+                            : 'border-ink/10 bg-white text-ink/80 hover:bg-ink/5'
+                        }`}
+                        onClick={() => setVariation(option.id)}
+                      >
+                        <span className="block text-base font-semibold">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-4 text-sm text-ink/65">
+                  {VARIATION_HELP[activeVariation.id]}
+                </div>
               </div>
-              <p className="text-xs text-ink/50">
-                「大きく」にすると似た絵でも変化が強くなります。
-              </p>
+
+                <div className="mt-auto flex items-end justify-between gap-3 pt-2">
+                  <Link href="/" className="btn btn-ghost px-6 py-3 text-base">
+                    もどる
+                  </Link>
+                  <button
+                    className="btn btn-primary px-8 py-4 text-lg shadow-xl shadow-ink/20"
+                    onClick={() => runGenerate(true)}
+                  >
+                    生成する
+                  </button>
+                </div>
+              </section>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button className="btn btn-primary" onClick={() => runGenerate(true)}>
-              生成する
-            </button>
-            <Link href="/" className="btn btn-ghost">
-              もどる
-            </Link>
           </div>
         </div>
       </main>

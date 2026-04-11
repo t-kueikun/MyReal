@@ -1,140 +1,177 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DrawingCanvas, { DrawingCanvasHandle } from './DrawingCanvas';
-import PalettePicker from './PalettePicker';
 import { saveImageBlob } from '../../lib/clientStorage';
 import { saveDraft } from '../../lib/draft';
 import Link from 'next/link';
-import { ChevronLeft, Check, SlidersHorizontal } from 'lucide-react';
-import { MOOD_OPTIONS, type MoodId } from '../../lib/mood';
+import { ChevronLeft, Check, Clock3 } from 'lucide-react';
 
 const DEFAULT_PALETTE = ['#f8a4b8', '#ffd1a9', '#ffe8cc'];
-const DEFAULT_MOOD: MoodId = 'random';
+const DRAWING_LIMIT_SECONDS = 30;
 
 export default function DrawPageClient() {
-    const router = useRouter();
-    const drawingRef = useRef<DrawingCanvasHandle | null>(null);
-    const [palette, setPalette] = useState(DEFAULT_PALETTE);
-    const [bgRemove, setBgRemove] = useState(true);
-    const [mood, setMood] = useState<MoodId>(DEFAULT_MOOD);
-    const [busy, setBusy] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
+  const router = useRouter();
+  const drawingRef = useRef<DrawingCanvasHandle | null>(null);
+  const autoSubmittedRef = useRef(false);
+  const handleNextRef = useRef<(auto?: boolean) => Promise<void>>(async () => {});
+  const submittingRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(DRAWING_LIMIT_SECONDS);
+  const [timedOut, setTimedOut] = useState(false);
 
-    const handleNext = async () => {
-        setBusy(true);
-        try {
-            const blob = (await drawingRef.current?.exportBlob()) ?? null;
-            if (!blob) {
-                alert('描画してください');
-                return;
-            }
+  const handleNext = async (auto = false) => {
+    if (busy || submittingRef.current) return;
+    submittingRef.current = true;
+    setBusy(true);
+    try {
+      const blob = (await drawingRef.current?.exportBlob()) ?? null;
+      if (!blob) {
+        alert(auto ? '自動終了できる描画がありません。' : '描画してください');
+        return;
+      }
 
-            const { nanoid } = await import('nanoid');
-            const draftId = nanoid(10);
+      const { nanoid } = await import('nanoid');
+      const draftId = nanoid(10);
 
-            await saveImageBlob('input', blob, draftId);
-            saveDraft({
-                palette,
-                bgRemove,
-                mood,
-                source: 'draw'
-            }, draftId);
+      await saveImageBlob('input', blob, draftId);
+      saveDraft({
+        palette: DEFAULT_PALETTE,
+        bgRemove: true,
+        mood: 'random',
+        source: 'draw'
+      }, draftId);
 
-            router.push(`/generate/${draftId}`);
-        } catch (e) {
-            console.error(e);
-            alert('エラーが発生しました');
-        } finally {
-            setBusy(false);
-        }
+      router.push(`/generate/${draftId}`);
+    } catch (error) {
+      console.error(error);
+      alert('エラーが発生しました');
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  handleNextRef.current = handleNext;
+
+  useEffect(() => {
+    if (!startedAt || busy) return;
+
+    const updateCountdown = () => {
+      const elapsedMs = Date.now() - startedAt;
+      const nextRemaining = Math.max(
+        0,
+        Math.ceil((DRAWING_LIMIT_SECONDS * 1000 - elapsedMs) / 1000)
+      );
+      setRemainingSeconds(nextRemaining);
+      if (nextRemaining === 0) {
+        setTimedOut(true);
+        return true;
+      }
+      return false;
     };
 
-    return (
-        <div className="fixed inset-0 flex flex-col overflow-hidden bg-paper">
-            <div
-                aria-hidden="true"
-                className="absolute inset-0 bg-[url('/images/site-wallpaper.png')] bg-cover bg-center opacity-70"
-            />
-            <div
-                aria-hidden="true"
-                className="absolute inset-0 bg-white/70"
-            />
-            {/* Header */}
-            <header className="z-10 flex-none flex items-center justify-between p-4">
-                <Link href="/" className="btn btn-ghost rounded-full w-12 h-12 p-0 flex items-center justify-center">
-                    <ChevronLeft className="w-6 h-6" />
-                </Link>
-                <h1 className="px-5 py-2 font-heading text-xl text-ink">
-                    描く
-                </h1>
-                <button
-                    onClick={() => setShowSettings(!showSettings)}
-                    className={`btn rounded-full w-12 h-12 p-0 flex items-center justify-center ${showSettings ? 'bg-ink/10' : 'btn-ghost'}`}
-                >
-                    <SlidersHorizontal className="w-5 h-5" />
-                </button>
-            </header>
+    if (updateCountdown()) return;
 
-            {/* Main Canvas Area - maximized */}
-            <main className="relative flex h-full w-full flex-1 items-center justify-center p-2 md:p-6">
-                <div className="relative w-full max-w-3xl aspect-square max-h-[85vh] shadow-xl md:rounded-3xl overflow-hidden bg-white border border-white/60">
-                    <DrawingCanvas ref={drawingRef} />
-                </div>
-            </main>
+    const timerId = window.setInterval(() => {
+      if (updateCountdown()) {
+        window.clearInterval(timerId);
+      }
+    }, 250);
 
-            {/* Settings Overlay / Modal */}
-            {showSettings && (
-                <div className="absolute top-16 right-4 z-20 w-72 card p-5 animate-in slide-in-from-top-2 fade-in space-y-4 shadow-2xl">
-                    <div>
-                        <label className="text-xs font-bold text-ink/50 uppercase tracking-widest mb-2 block">カラーパレット</label>
-                        <PalettePicker value={palette} onChange={setPalette} />
-                    </div>
-                    <div className="border-t border-ink/10 pt-3">
-                        <label className="text-xs font-bold text-ink/50 uppercase tracking-widest mb-2 block">スタイル</label>
-                        <select
-                            className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm"
-                            value={mood}
-                            onChange={(e) => setMood(e.target.value as MoodId)}
-                        >
-                            {MOOD_OPTIONS.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="mt-2 text-xs text-ink/50">おまかせは毎回ランダムです。</p>
-                    </div>
-                    <div className="border-t border-ink/10 pt-3">
-                        <label className="flex items-center gap-3 text-sm font-medium">
-                            <input
-                                type="checkbox"
-                                checked={bgRemove}
-                                onChange={(e) => setBgRemove(e.target.checked)}
-                                className="w-5 h-5 accent-accent"
-                            />
-                            背景除去（推奨）
-                        </label>
-                    </div>
-                </div>
-            )}
+    return () => window.clearInterval(timerId);
+  }, [startedAt, busy]);
 
-            {/* Floating Action Button for Next */}
-            <div className="absolute bottom-6 right-6 z-20">
-                <button
-                    onClick={handleNext}
-                    disabled={busy}
-                    className="h-16 px-8 rounded-full bg-ink text-white shadow-lift flex items-center gap-3 font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100"
-                >
-                    {busy ? '処理中...' : (
-                        <>
-                            <span>次へ</span>
-                            <Check className="w-5 h-5" />
-                        </>
-                    )}
-                </button>
+  useEffect(() => {
+    if (!timedOut || autoSubmittedRef.current || busy) return;
+    autoSubmittedRef.current = true;
+    void handleNextRef.current(true);
+  }, [timedOut, busy]);
+
+  const handleCanvasDirty = () => {
+    if (startedAt || timedOut || busy) return;
+    setStartedAt(Date.now());
+    setRemainingSeconds(DRAWING_LIMIT_SECONDS);
+  };
+
+  const timerProgress = startedAt
+    ? Math.max(0, (remainingSeconds / DRAWING_LIMIT_SECONDS) * 100)
+    : 100;
+  const timerTone = timedOut
+    ? 'bg-red-100 text-red-700'
+    : startedAt && remainingSeconds <= 10
+      ? 'bg-orange-100 text-orange-700'
+      : 'bg-white text-ink/70';
+
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-paper">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[url('/images/site-wallpaper.png')] bg-cover bg-center opacity-70"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-white/70"
+      />
+
+      <div className="relative z-10 flex h-full flex-col">
+        <header className="z-20 flex items-center justify-between px-4 pb-3 pt-4">
+          <Link href="/" className="btn btn-ghost h-12 w-12 rounded-full p-0">
+            <ChevronLeft className="h-6 w-6" />
+          </Link>
+
+          <div aria-hidden="true" className="h-12 w-12" />
+          <div aria-hidden="true" className="h-12 w-12" />
+        </header>
+
+        <main className="relative flex flex-1 items-center justify-center px-2 pb-24 pt-2 md:px-6">
+          <div className="relative flex h-full w-full max-w-3xl -translate-y-16 items-center justify-center py-2 md:-translate-y-[4.5rem]">
+            <div className="relative w-full aspect-square max-h-[calc(100%-1rem)] overflow-hidden rounded-[2rem] border border-white/60 bg-white shadow-xl md:max-h-[calc(100%-1.5rem)]">
+              <div className="h-full w-full">
+                <DrawingCanvas
+                  ref={drawingRef}
+                  onDirty={handleCanvasDirty}
+                  disabled={busy || timedOut}
+                  overlayTop={(
+                    <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${timerTone}`}>
+                      <Clock3 className="h-4 w-4" />
+                      {busy
+                        ? '保存中…'
+                        : timedOut
+                          ? '時間切れです'
+                          : startedAt
+                            ? `あと ${remainingSeconds} 秒`
+                            : '30秒カウント'}
+                    </div>
+                  )}
+                />
+              </div>
             </div>
+          </div>
+        </main>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 pointer-events-none">
+        <div className="mx-auto flex max-w-6xl items-end justify-end px-4 pb-6 sm:px-6">
+          <button
+            type="button"
+            onClick={() => {
+              void handleNext();
+            }}
+            disabled={busy}
+            className="pointer-events-auto inline-flex h-14 items-center gap-3 rounded-full bg-ink px-7 text-lg font-bold text-white shadow-lg shadow-ink/20 transition-transform hover:scale-[1.02] disabled:scale-100"
+          >
+            {busy ? '処理中…' : (
+              <>
+                <span>次へ</span>
+                <Check className="h-5 w-5" />
+              </>
+            )}
+          </button>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
