@@ -20,6 +20,11 @@ import PalettePicker from '../../components/PalettePicker';
 
 type GenerateResult = SavedResult;
 
+type PendingCompletion = {
+  result: GenerateResult;
+  qrUrl: string;
+};
+
 const AUTO_KEY = 'areal:auto-generate';
 const EMPTY_PALETTE: string[] = [];
 const VARIATION_HELP: Record<VariationId, string> = {
@@ -41,7 +46,11 @@ export default function GeneratePage() {
   const [palette, setPalette] = useState<string[]>(EMPTY_PALETTE);
   const [variation, setVariation] = useState<VariationId>('standard');
   const [elapsed, setElapsed] = useState(0);
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const [pendingCompletion, setPendingCompletion] = useState<PendingCompletion | null>(null);
   const didRunRef = useRef(false);
+  const loadingStartedAtRef = useRef<number | null>(null);
+  const pendingCompletionRef = useRef<PendingCompletion | null>(null);
   const activeVariation =
     VARIATION_OPTIONS.find((option) => option.id === variation) ?? VARIATION_OPTIONS[1];
 
@@ -51,9 +60,11 @@ export default function GeneratePage() {
       const existingResult = loadResult(draftId);
       if (existingResult && !force) {
         setResult(existingResult);
-        setState('done');
         const url = `${window.location.origin}/ar/${existingResult.token}`;
         QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
+        setDisplayProgress(100);
+        setPendingCompletion(null);
+        setState('done');
         return;
       }
 
@@ -67,6 +78,8 @@ export default function GeneratePage() {
 
       setState('loading');
       setError('');
+      setDisplayProgress(0);
+      setPendingCompletion(null);
 
       // 2. Load Draft Data using ID
       const activeDraft = draft ?? loadDraft(draftId);
@@ -112,13 +125,14 @@ export default function GeneratePage() {
 
       // 3. Save Result and Clear Draft
       saveResult(draftId, data);
-      setResult(data);
       clearDraft(draftId);
       deleteImageBlob('input', draftId).catch(() => null);
 
-      setState('done');
       const url = `${window.location.origin}/ar/${data.token}`;
-      QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
+      setPendingCompletion({
+        result: data,
+        qrUrl: url
+      });
     } catch {
       setError('通信が不安定です。少し待って再試行してください。');
       setState('error');
@@ -132,6 +146,8 @@ export default function GeneratePage() {
       const existingResult = loadResult(draftId);
       if (existingResult) {
         setResult(existingResult);
+        setDisplayProgress(100);
+        setPendingCompletion(null);
         setState('done');
         const url = `${window.location.origin}/ar/${existingResult.token}`;
         QRCode.toDataURL(url, { margin: 1, width: 240 }).then(setQr);
@@ -148,6 +164,8 @@ export default function GeneratePage() {
       setDraft(loadedDraft);
       setMood((loadedDraft.mood as MoodId) || 'random');
       setPalette(EMPTY_PALETTE);
+      setDisplayProgress(0);
+      setPendingCompletion(null);
       setPreviewUrl(URL.createObjectURL(blob));
       setState('ready');
     };
@@ -166,17 +184,74 @@ export default function GeneratePage() {
   }, [previewUrl]);
 
   useEffect(() => {
+    pendingCompletionRef.current = pendingCompletion;
+  }, [pendingCompletion]);
+
+  useEffect(() => {
     if (state !== 'loading') {
+      loadingStartedAtRef.current = null;
       setElapsed(0);
       return;
     }
+
     const start = Date.now();
+    loadingStartedAtRef.current = start;
     setElapsed(0);
+
     const id = window.setInterval(() => {
       setElapsed(Math.floor((Date.now() - start) / 1000));
-    }, 1000);
+    }, 250);
+
     return () => window.clearInterval(id);
   }, [state]);
+
+  useEffect(() => {
+    if (state !== 'loading') {
+      setDisplayProgress(0);
+      return;
+    }
+
+    let frameId = 0;
+    const DURATION_MS = 20_000;
+
+    const easeInOutCubic = (t: number) =>
+      t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const tick = () => {
+      const startedAt = loadingStartedAtRef.current ?? Date.now();
+      const elapsedMs = Date.now() - startedAt;
+      const raw = Math.min(elapsedMs / DURATION_MS, 1);
+      const eased = easeInOutCubic(raw);
+      const target = eased * 100;
+
+      setDisplayProgress(target);
+
+      if (raw < 1) {
+        frameId = window.requestAnimationFrame(tick);
+      }
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [state]);
+
+  useEffect(() => {
+    if (state !== 'loading' || !pendingCompletion || displayProgress < 100) {
+      return;
+    }
+
+    const id = window.setTimeout(() => {
+      setResult(pendingCompletion.result);
+      QRCode.toDataURL(pendingCompletion.qrUrl, { margin: 1, width: 240 }).then(setQr);
+      setPendingCompletion(null);
+      setState('done');
+    }, 700);
+
+    return () => window.clearTimeout(id);
+  }, [state, pendingCompletion, displayProgress]);
 
   const handleDownload = async () => {
     if (!result) return;
@@ -191,11 +266,6 @@ export default function GeneratePage() {
   };
 
   if (state === 'loading') {
-    // Non-linear easing: fast at the start, slows down toward the end
-    const t = Math.min(elapsed / 45, 1);
-    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
-    const progress = Math.min(92, Math.round(eased * 92));
-
     const messages = [
       '🎨 AIがゆるキャラを描いています…',
       '✨ 色をぬりぬり中…',
@@ -217,8 +287,8 @@ export default function GeneratePage() {
           <div className="space-y-3">
             <div className="h-3 w-full rounded-full bg-ink/10 overflow-hidden">
               <div
-                className="h-full progress-bar transition-all duration-700 ease-out"
-                style={{ width: `${progress}%` }}
+                className="h-full progress-bar"
+                style={{ width: `${displayProgress}%` }}
               />
             </div>
             <p
@@ -228,7 +298,7 @@ export default function GeneratePage() {
               {messages[msgIndex]}
             </p>
             <p className="text-xs text-ink/50">
-              目安: 20〜40秒 / 経過: {elapsed}秒
+              進行度: {Math.min(100, Math.round(displayProgress))}% / 経過: {elapsed}秒
             </p>
           </div>
         </div>
