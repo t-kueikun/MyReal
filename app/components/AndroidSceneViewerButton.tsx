@@ -56,30 +56,52 @@ function buildProcessedCanvas(image: HTMLImageElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas unavailable');
     ctx.drawImage(image, 0, 0);
-    // Basic image processing if needed (like corner sampling in QuickLookButton)
-    // For now, simple passthrough is likely fine, or reuse the same logic if needed.
-    // Reusing the QuickLookButton logic for consistency (alpha masking etc) might be good but let's keep it simple first.
-    return canvas;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return { canvas, imageData };
+}
+
+function buildAlphaTexture(imageData: ImageData) {
+    const alphaCanvas = document.createElement('canvas');
+    alphaCanvas.width = imageData.width;
+    alphaCanvas.height = imageData.height;
+    const alphaCtx = alphaCanvas.getContext('2d');
+    if (!alphaCtx) throw new Error('Canvas unavailable');
+    const alphaData = alphaCtx.createImageData(imageData.width, imageData.height);
+    const src = imageData.data;
+    const dest = alphaData.data;
+    for (let i = 0; i < src.length; i += 4) {
+        const a = src[i + 3];
+        dest[i] = a;
+        dest[i + 1] = a;
+        dest[i + 2] = a;
+        dest[i + 3] = 255;
+    }
+    alphaCtx.putImageData(alphaData, 0, 0);
+    const alphaTexture = new THREE.CanvasTexture(alphaCanvas);
+    alphaTexture.colorSpace = THREE.NoColorSpace;
+    alphaTexture.needsUpdate = true;
+    return alphaTexture;
 }
 
 async function buildGLB(imageUrl: string) {
     const image = await loadImageFromUrl(imageUrl);
-    const canvas = buildProcessedCanvas(image);
+    const { canvas, imageData } = buildProcessedCanvas(image);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.needsUpdate = true;
+    const alphaTexture = buildAlphaTexture(imageData);
 
     const aspect = image.width ? image.width / image.height : 1;
     const height = 0.6;
     const width = height * aspect;
 
-    const faceMaterial = new THREE.MeshStandardMaterial({
+    const faceMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
         map: texture,
+        alphaMap: alphaTexture,
         transparent: true,
         side: THREE.DoubleSide,
-        alphaTest: 0.15,
-        roughness: 1,
-        metalness: 0
+        alphaTest: 0.03
     });
 
     // Create a mesh standing up
