@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { Pencil, Eraser, Undo2, RotateCcw } from 'lucide-react';
+import { getStrokeWidth } from './drawingPressure';
 
 export type DrawingCanvasHandle = {
   exportBlob: () => Promise<Blob | null>;
@@ -38,6 +39,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
     const isDrawingRef = useRef(false);
     const activePointerIdRef = useRef<number | null>(null);
     const lastPointRef = useRef<Point | null>(null);
+    const lastMidPointRef = useRef<Point | null>(null);
+    const lastLineWidthRef = useRef<number | null>(null);
     const history = useRef<ImageData[]>([]);
 
     const getContext = () => {
@@ -58,6 +61,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
       isDrawingRef.current = false;
       activePointerIdRef.current = null;
       lastPointRef.current = null;
+      lastMidPointRef.current = null;
+      lastLineWidthRef.current = null;
     };
 
     const clearCanvas = () => {
@@ -194,6 +199,18 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
       };
     };
 
+    const getLineWidth = (event: React.PointerEvent) => {
+      const { strokeScale } = getPointerMetrics();
+      const baseSize = tool === 'pen' ? penSize : eraserSize;
+
+      return getStrokeWidth({
+        baseSize,
+        strokeScale,
+        pointerType: tool === 'pen' ? event.pointerType : 'mouse',
+        pressure: event.pressure
+      });
+    };
+
     const handlePointerDown = (event: React.PointerEvent) => {
       if (disabled || !event.isPrimary || event.button !== 0) return;
       event.preventDefault();
@@ -210,20 +227,20 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
       if (history.current.length > HISTORY_LIMIT) history.current.shift();
 
       const { x, y } = getPos(event);
-      const { strokeScale } = getPointerMetrics();
+      const lineWidth = getLineWidth(event);
 
       ctx.strokeStyle = tool === 'pen' ? '#101114' : '#000000';
       ctx.fillStyle = tool === 'pen' ? '#101114' : '#000000';
-      ctx.lineWidth = (tool === 'pen' ? penSize : eraserSize) * strokeScale;
+      ctx.lineWidth = lineWidth;
       ctx.globalCompositeOperation = tool === 'pen' ? 'source-over' : 'destination-out';
 
       ctx.beginPath();
       ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2);
       ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
 
       lastPointRef.current = { x, y };
+      lastMidPointRef.current = { x, y };
+      lastLineWidthRef.current = lineWidth;
       isDrawingRef.current = true;
       onDirty?.();
     };
@@ -250,10 +267,11 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
       if (!ctx) return;
       const point = getPos(event);
       const previousPoint = lastPointRef.current;
+      const previousMidPoint = lastMidPointRef.current;
 
       if (!previousPoint) {
         lastPointRef.current = point;
-        ctx.moveTo(point.x, point.y);
+        lastMidPointRef.current = point;
         return;
       }
 
@@ -262,9 +280,16 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
         y: (previousPoint.y + point.y) / 2
       };
 
+      const nextLineWidth = getLineWidth(event);
+      ctx.lineWidth = (nextLineWidth + (lastLineWidthRef.current ?? nextLineWidth)) / 2;
+      ctx.beginPath();
+      ctx.moveTo(previousMidPoint?.x ?? previousPoint.x, previousMidPoint?.y ?? previousPoint.y);
       ctx.quadraticCurveTo(previousPoint.x, previousPoint.y, midPoint.x, midPoint.y);
       ctx.stroke();
+
       lastPointRef.current = point;
+      lastMidPointRef.current = midPoint;
+      lastLineWidthRef.current = ctx.lineWidth;
     };
 
     const endDrawing = (event?: React.PointerEvent) => {
@@ -281,11 +306,18 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(
 
       const ctx = getContext();
       if (!ctx) return;
-      if (point) {
-        ctx.lineTo(point.x, point.y);
+      if (point && lastPointRef.current) {
+        if (event) {
+          const nextLineWidth = getLineWidth(event);
+          ctx.lineWidth = (nextLineWidth + (lastLineWidthRef.current ?? nextLineWidth)) / 2;
+        } else {
+          ctx.lineWidth = lastLineWidthRef.current ?? ctx.lineWidth;
+        }
+        ctx.beginPath();
+        ctx.moveTo(lastMidPointRef.current?.x ?? lastPointRef.current.x, lastMidPointRef.current?.y ?? lastPointRef.current.y);
+        ctx.quadraticCurveTo(lastPointRef.current.x, lastPointRef.current.y, point.x, point.y);
         ctx.stroke();
       }
-      ctx.closePath();
       ctx.globalCompositeOperation = 'source-over';
       resetDrawingState();
     };
