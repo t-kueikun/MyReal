@@ -15,7 +15,6 @@ import {
 } from '../../../lib/draft';
 import { MOOD_OPTIONS, type MoodId } from '../../../lib/mood';
 import { VARIATION_OPTIONS, type VariationId } from '../../../lib/variation';
-import FeedbackForm from '../../components/FeedbackForm';
 import PalettePicker from '../../components/PalettePicker';
 
 type GenerateResult = SavedResult;
@@ -508,7 +507,6 @@ export default function GeneratePage() {
           </div>
         </div>
       </section>
-      {result ? <FeedbackForm token={result.token} /> : null}
     </main>
   );
 }
