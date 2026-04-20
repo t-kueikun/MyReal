@@ -63,6 +63,7 @@ export function buildOpenRouterPrompt(
   return [
     'Create exactly one mascot character image.',
     'Use the input image only as inspiration; do not trace, do not fill original lines.',
+    'Do not leave any leftover sketch fragments, double contours, chin lines, jaw lines, or echoed parts of the original drawing in the final mascot.',
     'Character style: rounded, plush-like, marshmallow soft 3D volume, gentle shading.',
     'Outline rule: no black outlines, use soft outline color close to body color.',
     'Do not draw a stroke/border around the outer silhouette. Avoid dark rim lines on edges.',

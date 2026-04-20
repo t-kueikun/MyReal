@@ -126,9 +126,9 @@ export default function DrawPageClient() {
           <div aria-hidden="true" className="h-12 w-12" />
         </header>
 
-        <main className="relative flex flex-1 items-center justify-center px-2 pb-24 pt-2 md:px-6">
-          <div className="relative flex h-full w-full max-w-3xl items-center justify-center py-2">
-            <div className="relative w-full aspect-square max-h-[calc(100%-0.5rem)] overflow-hidden rounded-[2rem] border border-white/60 bg-white shadow-xl">
+        <main className="relative flex min-h-0 flex-1 items-center justify-center px-2 pb-16 pt-1 md:px-6">
+          <div className="relative flex h-full min-h-0 w-full items-center justify-center py-0.5">
+            <div className="relative aspect-square h-full max-h-full w-auto max-w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/60 bg-white shadow-xl">
               <div className="h-full w-full">
                 <DrawingCanvas
                   ref={drawingRef}
