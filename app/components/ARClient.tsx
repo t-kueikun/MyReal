@@ -63,7 +63,7 @@ export default function ARClient({ imageUrl }: Props) {
 
         <div className="card p-6 space-y-5">
           <div className="space-y-2">
-            <h2 className="font-heading text-lg">ARを開く</h2>
+            <h2 className="font-heading text-lg">ARを起動</h2>
             <p className="text-sm text-ink/60">
               端末に合ったネイティブ AR で起動します。配置や撮影、カメラ切り替えは各アプリ側の標準 UI に従います。
             </p>
