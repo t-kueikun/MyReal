@@ -16,8 +16,37 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+function decodeDataPayload(data: string, isBase64: boolean) {
+  if (!isBase64) {
+    return new TextEncoder().encode(decodeURIComponent(data));
+  }
+
+  const decoded = atob(data);
+  const bytes = new Uint8Array(decoded.length);
+  for (let index = 0; index < decoded.length; index += 1) {
+    bytes[index] = decoded.charCodeAt(index);
+  }
+  return bytes;
+}
+
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const match = dataUrl.match(/^data:([^;,]+)?((?:;[^;,=]+=[^;,]*)*)(;base64)?,([\s\S]*)$/);
+  if (!match) {
+    throw new TypeError('Invalid data URL');
+  }
+
+  const mimeType = match[1] || 'application/octet-stream';
+  const isBase64 = Boolean(match[3]);
+  const payload = match[4] || '';
+
+  return new Blob([decodeDataPayload(payload, isBase64)], { type: mimeType });
+}
+
 // Helper to convert Base64 to Blob
 async function base64ToBlob(base64: string): Promise<Blob> {
+  if (base64.startsWith('data:')) {
+    return dataUrlToBlob(base64);
+  }
   const res = await fetch(base64);
   return await res.blob();
 }
