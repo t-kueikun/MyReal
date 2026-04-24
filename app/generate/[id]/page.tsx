@@ -450,19 +450,6 @@ export default function GeneratePage() {
                 className="w-full rounded-3xl bg-white p-4 shadow-soft"
               />
             ) : null}
-            {result ? (
-              <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-4 space-y-2">
-                <p className="text-sm font-semibold text-ink/80">
-                  ここから AR ページを開く
-                </p>
-                <Link href={`/ar/${result.token}`} className="btn btn-accent w-full py-4 text-lg">
-                  ARを開く
-                </Link>
-                <p className="text-xs text-ink/50">
-                  開いた端末に応じて、iPhone は Quick Look、Android は Scene Viewer が起動します。
-                </p>
-              </div>
-            ) : null}
             <div className="flex flex-wrap gap-3">
               <button className="btn btn-ghost" onClick={handleDownload}>
                 保存
