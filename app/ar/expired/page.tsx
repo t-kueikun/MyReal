@@ -8,7 +8,7 @@ export default function ExpiredPage() {
         <p className="text-ink/70">
           24時間の体験期限が切れました。もう一度つくって体験しよう！
         </p>
-        <Link href="/" className="btn btn-primary">
+        <Link href="/" data-hotkey-next className="btn btn-primary">
           もう一度つくる
         </Link>
       </div>

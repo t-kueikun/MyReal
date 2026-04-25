@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Zen_Kaku_Gothic_New } from 'next/font/google';
 import ClientLogger from './components/ClientLogger';
+import GlobalHotkeys from './components/GlobalHotkeys';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 
 const heading = Zen_Kaku_Gothic_New({
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body>
         <ClientLogger />
         <ServiceWorkerRegister />
+        <GlobalHotkeys />
         {children}
       </body>
     </html>

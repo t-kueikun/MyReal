@@ -14,7 +14,7 @@ export default function HomePage() {
             会場での体験準備のため一時停止しています。
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/demo" className="btn btn-accent">
+            <Link href="/demo" data-hotkey-next className="btn btn-accent">
               オンライン体験版
             </Link>
           </div>

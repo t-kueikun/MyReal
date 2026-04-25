@@ -12,6 +12,7 @@ export default function HomeClient({ eventMode }: { eventMode?: boolean }) {
         <div className="flex items-center justify-center">
           <Link
             href="/draw"
+            data-hotkey-next
             className="group relative flex h-52 w-full flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/70 bg-white/75 p-8 text-ink shadow-lift backdrop-blur-sm transition-transform duration-300 hover:scale-105 sm:w-96"
           >
             <div className="relative z-10 flex flex-col items-center justify-center">

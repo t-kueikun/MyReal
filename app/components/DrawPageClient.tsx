@@ -96,6 +96,38 @@ export default function DrawPageClient() {
     setRemainingSeconds(DRAWING_LIMIT_SECONDS);
   };
 
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tagName = target.tagName;
+      return (
+        target.isContentEditable ||
+        tagName === 'INPUT' ||
+        tagName === 'TEXTAREA' ||
+        tagName === 'SELECT' ||
+        tagName === 'BUTTON'
+      );
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || isTypingTarget(event.target)) {
+        return;
+      }
+
+      const lowerKey = event.key.toLowerCase();
+      const isUndo = (event.metaKey || event.ctrlKey) && !event.shiftKey && lowerKey === 'z';
+      if (isUndo) {
+        event.preventDefault();
+        drawingRef.current?.undo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const timerProgress = startedAt
     ? Math.max(0, (remainingSeconds / DRAWING_LIMIT_SECONDS) * 100)
     : 100;
@@ -157,6 +189,7 @@ export default function DrawPageClient() {
         <div className="mx-auto flex max-w-6xl items-end justify-end px-4 pb-6 sm:px-6">
           <button
             type="button"
+            data-hotkey-next
             onClick={() => {
               void handleNext();
             }}
