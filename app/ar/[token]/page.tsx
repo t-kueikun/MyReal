@@ -19,7 +19,7 @@ export default async function ArPage(props: {
           <p className="text-ink/70">
             24時間の体験期限が切れました。もう一度つくって体験しよう！
           </p>
-          <Link href="/" className="btn btn-primary">
+          <Link href="/" data-hotkey-next className="btn btn-primary">
             もう一度つくる
           </Link>
         </div>
@@ -33,7 +33,7 @@ export default async function ArPage(props: {
       <main className="mx-auto max-w-4xl px-6 py-16">
         <div className="card p-8 space-y-4">
           <h1 className="font-heading text-2xl">見つかりませんでした</h1>
-          <Link href="/" className="btn btn-primary">
+          <Link href="/" data-hotkey-next className="btn btn-primary">
             もう一度つくる
           </Link>
         </div>
